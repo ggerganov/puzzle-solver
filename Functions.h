@@ -26,7 +26,12 @@ struct Render {
 };
 
 struct Exist {
+    template <typename T> bool operator()(const int32_t id, const T & obj);
     template <typename T> bool operator()(const char * fname, const T & obj);
+};
+
+struct Count {
+    template <typename T> int32_t operator()(const T & obj);
 };
 
 struct Free {

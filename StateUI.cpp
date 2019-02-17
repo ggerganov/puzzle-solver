@@ -42,21 +42,22 @@ bool Render::operator()<StateUI>(StateUI & obj) {
     ImGui::SetNextWindowSize({ obj.leftPanelSizeX, obj.loadedImagesSizeY });
     ImGui::Begin("Loaded images");
     {
-        auto & imgs = obj.loadedImages;
-        for (int id = 0; id < (int) imgs.size(); ++id) {
-            auto & item = imgs[id];
+        auto & images = obj.loadedImages;
+        auto & selectedId = images.selectedId;
+        for (int id = 0; id < (int) images.size(); ++id) {
+            auto & item = images[id];
             ImGui::PushID(item.fname.c_str());
             if (obj.curAction == StateUI::LoadingImages) {
                 if (ImGui::Button("Delete")) {
                     ::Free()(item);
-                    imgs.erase(imgs.begin() + id);
-                    imgs.selectedId = -1;
+                    images.erase(images.begin() + id);
+                    selectedId = -1;
                     --id;
                     continue;
                 }
                 ImGui::SameLine();
             }
-            if (id == imgs.selectedId) {
+            if (id == selectedId) {
                 ImGui::TextColored({1.0f, 1.0f, 0.0f, 1.0f}, "%s", item.fname.c_str());
             } else {
                 if (obj.curAction == StateUI::AddingCommonPoint) {
@@ -70,7 +71,7 @@ bool Render::operator()<StateUI>(StateUI & obj) {
                 }
                 if (ImGui::IsItemHovered()) {
                     if (ImGui::IsMouseDown(0)) {
-                        imgs.selectedId = id;
+                        selectedId = id;
                     }
                 }
             }
@@ -85,63 +86,91 @@ bool Render::operator()<StateUI>(StateUI & obj) {
     ImGui::SetNextWindowPos({ obj.leftPanelSizeX, 0 });
     ImGui::SetNextWindowSize({ ImGui::GetIO().DisplaySize.x - obj.leftPanelSizeX, ImGui::GetIO().DisplaySize.y });
     ImGui::Begin("Selected image");
-    if (obj.loadedImages.selectedId >= 0) {
-        auto & selectedImage = obj.loadedImages[obj.loadedImages.selectedId].image;
-        ImageRGBView view = { &obj.fovSelectedImage, &selectedImage };
+    {
+        const auto & selectedId = obj.loadedImages.selectedId;
+        if (selectedId >= 0) {
+            auto & selectedImage = obj.loadedImages[selectedId].image;
+            ImageRGBView view = { &obj.fovSelectedImage, &selectedImage };
 
-        auto savePos = ImGui::GetCursorScreenPos();
-        auto canvasSize = ImGui::GetContentRegionAvail();
+            auto canvasPos = ImGui::GetCursorScreenPos();
+            auto canvasSize = ImGui::GetContentRegionAvail();
 
-        ImGui::Image((void *)(intptr_t) view.image->texture.id, canvasSize,
-                     ImVec2(view.fov->centerX - 0.5f*view.fov->sizeX,
-                            view.fov->centerY - 0.5f*view.fov->sizeY),
-                     ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
-                            view.fov->centerY + 0.5f*view.fov->sizeY),
-                     ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 0));
+            auto drawList = ImGui::GetWindowDrawList();
 
-        if (ImGui::IsItemHovered()) {
-            int signW = ::sign(ImGui::GetIO().MouseWheel);
+            ImGui::Image((void *)(intptr_t) view.image->texture.id, canvasSize,
+                         ImVec2(view.fov->centerX - 0.5f*view.fov->sizeX,
+                                view.fov->centerY - 0.5f*view.fov->sizeY),
+                         ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
+                                view.fov->centerY + 0.5f*view.fov->sizeY),
+                         ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 0));
 
-            float mxCanvas = (ImGui::GetIO().MousePos.x - savePos.x)/canvasSize.x;
-            float myCanvas = (ImGui::GetIO().MousePos.y - savePos.y)/canvasSize.y;
+            if (ImGui::IsItemHovered()) {
+                int signW = ::sign(ImGui::GetIO().MouseWheel);
 
-            if (signW) {
-                float oldSX = view.fov->sizeX;
-                float oldSY = view.fov->sizeY;
+                float mxCanvas = (ImGui::GetIO().MousePos.x - canvasPos.x)/canvasSize.x;
+                float myCanvas = (ImGui::GetIO().MousePos.y - canvasPos.y)/canvasSize.y;
 
-                view.fov->sizeX = std::min(1.0f, view.fov->sizeX*(1.0f - 0.1f*signW));
-                view.fov->sizeY = std::min(1.0f, view.fov->sizeY*(1.0f - 0.1f*signW));
+                if (signW) {
+                    float oldSX = view.fov->sizeX;
+                    float oldSY = view.fov->sizeY;
 
-                view.fov->sizeX = std::max(0.25f, view.fov->sizeX);
-                view.fov->sizeY = std::max(0.25f, view.fov->sizeY);
+                    view.fov->sizeX = std::min(1.0f, view.fov->sizeX*(1.0f - 0.1f*signW));
+                    view.fov->sizeY = std::min(1.0f, view.fov->sizeY*(1.0f - 0.1f*signW));
 
-                view.fov->centerX = (mxCanvas - 0.5f)*(oldSX - view.fov->sizeX) + view.fov->centerX;
-                view.fov->centerY = (myCanvas - 0.5f)*(oldSY - view.fov->sizeY) + view.fov->centerY;
+                    view.fov->sizeX = std::max(0.25f, view.fov->sizeX);
+                    view.fov->sizeY = std::max(0.25f, view.fov->sizeY);
+
+                    view.fov->centerX = (mxCanvas - 0.5f)*(oldSX - view.fov->sizeX) + view.fov->centerX;
+                    view.fov->centerY = (myCanvas - 0.5f)*(oldSY - view.fov->sizeY) + view.fov->centerY;
+                }
+
+                {
+                    float diff = view.fov->centerX - 0.5f*view.fov->sizeX;
+                    if (diff < 0.0f) view.fov->centerX -= diff;
+                }
+                {
+                    float diff = view.fov->centerY - 0.5f*view.fov->sizeY;
+                    if (diff < 0.0f) view.fov->centerY -= diff;
+                }
+                {
+                    float diff = view.fov->centerX + 0.5f*view.fov->sizeX;
+                    if (diff >= 1.0f) view.fov->centerX -= (diff - 1.0f);
+                }
+                {
+                    float diff = view.fov->centerY + 0.5f*view.fov->sizeY;
+                    if (diff >= 1.0f) view.fov->centerY -= (diff - 1.0f);
+                }
+
+                if (ImGui::IsMouseClicked(0)) {
+                    float x = view.fov->centerX - 0.5f*view.fov->sizeX + mxCanvas*view.fov->sizeX;
+                    float y = view.fov->centerY - 0.5f*view.fov->sizeY + myCanvas*view.fov->sizeY;
+                    obj.commonPointInput.posInImage[selectedId] = { x, y };
+                }
+
+                if (ImGui::IsMouseClicked(1)) {
+                    obj.commonPointInput.posInImage.erase(selectedId);
+                }
             }
 
-            {
-                float diff = view.fov->centerX - 0.5f*view.fov->sizeX;
-                if (diff < 0.0f) view.fov->centerX -= diff;
-            }
-            {
-                float diff = view.fov->centerY - 0.5f*view.fov->sizeY;
-                if (diff < 0.0f) view.fov->centerY -= diff;
-            }
-            {
-                float diff = view.fov->centerX + 0.5f*view.fov->sizeX;
-                if (diff >= 1.0f) view.fov->centerX -= (diff - 1.0f);
-            }
-            {
-                float diff = view.fov->centerY + 0.5f*view.fov->sizeY;
-                if (diff >= 1.0f) view.fov->centerY -= (diff - 1.0f);
-            }
+            if (obj.curAction == StateUI::AddingCommonPoint) {
+                if (::Exist()(selectedId, obj.commonPointInput)) {
+                    float cx = obj.commonPointInput.posInImage[selectedId].x;
+                    float cy = obj.commonPointInput.posInImage[selectedId].y;
 
-            if (ImGui::IsMouseClicked(0)) {
-                obj.commonPointInput.posInImage[obj.loadedImages.selectedId] = { mxCanvas, myCanvas };
-            }
+                    cx = (cx - view.fov->centerX + 0.5f*view.fov->sizeX)/view.fov->sizeX;
+                    cy = (cy - view.fov->centerY + 0.5f*view.fov->sizeY)/view.fov->sizeY;
 
-            if (ImGui::IsMouseClicked(1)) {
-                obj.commonPointInput.posInImage.erase(obj.loadedImages.selectedId);
+                    float x = canvasPos.x + cx*canvasSize.x;
+                    float y = canvasPos.y + cy*canvasSize.y;
+
+                    drawList->AddCircle({ x, y }, 10.0f, ImGui::ColorConvertFloat4ToU32({0.0f, 1.0f, 0.0f, 1.0f}));
+
+                    if (((int)(ImGui::GetTime()*10))%2 == 0) {
+                        drawList->AddLine({ canvasPos.x, y }, { canvasPos.x + canvasSize.x, y }, ImGui::ColorConvertFloat4ToU32({0.0f, 1.0f, 0.0f, 1.0f}));
+                        drawList->AddLine({ x, canvasPos.y }, { x, canvasPos.y + canvasSize.y }, ImGui::ColorConvertFloat4ToU32({0.0f, 1.0f, 0.0f, 1.0f}));
+                    }
+                }
+
             }
         }
     }
@@ -177,6 +206,17 @@ bool Render::operator()<StateUI>(StateUI & obj) {
             }
         }
         ImGui::PopTextWrapPos();
+
+        if (ImGui::Button("Cancel")) {
+            obj.curAction = StateUI::None;
+        }
+        if (::Count()(obj.commonPointInput) > 1) {
+            ImGui::SameLine();
+            if (ImGui::Button("Add")) {
+#pragma message("todo: add point")
+                obj.curAction = StateUI::None;
+            }
+        }
     }
 
     if (obj.curAction == StateUI::None) {

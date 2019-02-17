@@ -57,6 +57,7 @@ add_library(Core STATIC
     StateUI.cpp
     LoadedImage.cpp
     LoadedImages.cpp
+    CommonPointInput.cpp
     Texture.cpp
     )
 

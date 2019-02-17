@@ -20,7 +20,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "DEBUG" "RELEASE" "RELWITHDEBINFO")
 endif()
 
-set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD 17)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Threads REQUIRED)
@@ -54,6 +54,10 @@ include_directories(${SDL2_INCLUDE_DIRS})
 add_library(Core STATIC
     BufferRGB.cpp
     ImageRGB.cpp
+    StateUI.cpp
+    LoadedImage.cpp
+    LoadedImages.cpp
+    Texture.cpp
     )
 
 target_include_directories(Core PRIVATE

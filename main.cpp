@@ -4,6 +4,7 @@
  */
 
 #include "Types.h"
+#include "Functions.h"
 
 #include "imgui/imgui.h"
 #include "imgui/examples/imgui_impl_sdl.h"
@@ -81,6 +82,8 @@ int main(int, char**) {
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+    StateUI stateUI;
+
     // Main loop
     bool done = false;
     while (!done)
@@ -97,6 +100,13 @@ int main(int, char**) {
                     done = true;
                 }
             }
+            if (event.type == SDL_DROPFILE) {
+                char * path = event.drop.file;
+                //SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "File dropped on window", path, window);
+                ::OnDragAndDrop()(path, stateUI);
+                SDL_free(path);
+                break;
+            }
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window)) {
                 done = true;
             }
@@ -105,6 +115,8 @@ int main(int, char**) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame(window);
         ImGui::NewFrame();
+
+        ::Render()(stateUI);
 
         // Rendering
         ImGui::Render();

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <map>
 #include <vector>
 #include <memory>
 #include <string>
@@ -17,6 +18,11 @@ struct Texture {
 struct BufferRGB : public std::vector<uint8_t> {
     using vector::operator[];
     int32_t npixels = 0;
+};
+
+struct Point2D {
+    float x = 0.0f;
+    float y = 0.0f;
 };
 
 struct ImageRGB {
@@ -49,7 +55,24 @@ struct LoadedImages : public std::vector<LoadedImage> {
     int32_t selectedId = -1;
 };
 
+struct CommonPointInput {
+    using ImageId = int32_t;
+    std::map<ImageId, Point2D> posInImage;
+};
+
 struct StateUI {
+    enum EAction {
+        None = 0,
+        LoadingImages,
+        AddingCommonPoint,
+    };
+
+    EAction curAction = LoadingImages;
+
+    float leftPanelSizeX = 320.f;
+    float loadedImagesSizeY = 400.0f;
+
     LoadedImages loadedImages;
     FieldOfView fovSelectedImage;
+    CommonPointInput commonPointInput;
 };

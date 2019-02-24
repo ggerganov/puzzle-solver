@@ -55,12 +55,18 @@ struct LoadedImages : public std::vector<LoadedImage> {
     int32_t selectedId = -1;
 };
 
-struct CommonPointInput {
+struct CommonPoint {
     using ImageId = int32_t;
     std::map<ImageId, Point2D> posInImage;
 };
 
-struct StateUI {
+struct CommonPoints : public std::vector<CommonPoint> {
+    using vector::vector;
+};
+
+struct StateApp {
+    // UI
+
     enum EAction {
         None = 0,
         LoadingImages,
@@ -72,7 +78,11 @@ struct StateUI {
     float leftPanelSizeX = 320.f;
     float loadedImagesSizeY = 400.0f;
 
-    LoadedImages loadedImages;
     FieldOfView fovSelectedImage;
-    CommonPointInput commonPointInput;
+    CommonPoint commonPointInput;
+
+    // Data
+
+    LoadedImages loadedImages;
+    CommonPoints commonPoints;
 };

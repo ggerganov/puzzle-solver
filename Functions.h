@@ -17,6 +17,10 @@ struct LoadFromFile {
     template <typename T> bool operator()(const char * fname, T & obj);
 };
 
+struct SaveToFile {
+    template <typename T> bool operator()(const char * fname, const T & obj);
+};
+
 struct OnDragAndDrop {
     template <typename T> bool operator()(const char * fname, T & obj);
 };
@@ -28,6 +32,10 @@ struct Render {
 struct Exist {
     template <typename T> bool operator()(const int32_t id, const T & obj);
     template <typename T> bool operator()(const char * fname, const T & obj);
+};
+
+struct Erase {
+    template <typename T> bool operator()(const int32_t id, T & obj);
 };
 
 struct Count {

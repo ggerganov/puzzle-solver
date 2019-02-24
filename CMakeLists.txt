@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.13)
+cmake_minimum_required (VERSION 3.10)
 project (Puzzle-Solver)
 
 option(BUILD_EXPERIMENTAL "Build experimental tools" OFF)
@@ -54,10 +54,11 @@ include_directories(${SDL2_INCLUDE_DIRS})
 add_library(Core STATIC
     BufferRGB.cpp
     ImageRGB.cpp
-    StateUI.cpp
+    StateApp.cpp
     LoadedImage.cpp
     LoadedImages.cpp
-    CommonPointInput.cpp
+    CommonPoint.cpp
+    CommonPoints.cpp
     Texture.cpp
     )
 

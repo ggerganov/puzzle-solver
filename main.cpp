@@ -82,10 +82,10 @@ int main(int argc, char ** argv) {
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    StateUI stateUI;
+    StateApp stateApp;
     if (argc > 1) {
         for (int i = 1; i < argc; ++i) {
-            ::OnDragAndDrop()(argv[i], stateUI);
+            ::OnDragAndDrop()(argv[i], stateApp);
         }
     }
 
@@ -108,7 +108,7 @@ int main(int argc, char ** argv) {
             if (event.type == SDL_DROPFILE) {
                 char * path = event.drop.file;
                 //SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "File dropped on window", path, window);
-                ::OnDragAndDrop()(path, stateUI);
+                ::OnDragAndDrop()(path, stateApp);
                 SDL_free(path);
                 break;
             }
@@ -121,7 +121,7 @@ int main(int argc, char ** argv) {
         ImGui_ImplSDL2_NewFrame(window);
         ImGui::NewFrame();
 
-        ::Render()(stateUI);
+        ::Render()(stateApp);
 
         // Rendering
         ImGui::Render();

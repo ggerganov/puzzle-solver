@@ -6,7 +6,7 @@
 #include "Types.h"
 #include "Functions.h"
 
-#include <GLFW/glfw3.h>
+#include "GL/gl3w.h"
 
 template <>
 bool Free::operator()<Texture>(Texture & obj) {

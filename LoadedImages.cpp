@@ -42,7 +42,7 @@ bool Render::operator()<LoadedImages>(LoadedImages & obj) {
 }
 
 template <>
-bool Exist::operator()<LoadedImages>(const char * fname, const LoadedImages & obj) {
+bool Exist::operator()<LoadedImages>(const LoadedImages & obj, const char * fname) {
     bool res = false;
 
     for (const auto & cur : obj) {

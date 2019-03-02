@@ -12,16 +12,16 @@
 #include "GL/gl3w.h"
 
 template <>
-bool Resize::operator()<ImageRGB>(const int32_t nx, const int32_t ny, ImageRGB & obj) {
+bool Resize::operator()<ImageRGB>(ImageRGB & obj, const int32_t nx, const int32_t ny) {
     obj.nx = nx;
     obj.ny = ny;
-    ::Resize()(nx*ny, obj.pixels);
+    ::Resize()(obj.pixels, nx*ny);
 
     return true;
 }
 
 template <>
-bool LoadFromFile::operator()<ImageRGB>(const char * fname, ImageRGB & obj) {
+bool LoadFromFile::operator()<ImageRGB>(ImageRGB & obj, const char * fname) {
     int nx, ny, nz;
     uint8_t * data = stbi_load(fname, &nx, &ny, &nz, STBI_rgb);
     if (data == nullptr) {
@@ -33,7 +33,7 @@ bool LoadFromFile::operator()<ImageRGB>(const char * fname, ImageRGB & obj) {
     if (nz == 1) {
         obj.nx = nx;
         obj.ny = ny;
-        ::Resize()(nx*ny, obj.pixels);
+        ::Resize()(obj.pixels, nx*ny);
         for (int i = 0; i < nx*ny; ++i) {
             obj.pixels[3*i + 0] = data[i];
             obj.pixels[3*i + 1] = data[i];
@@ -48,14 +48,14 @@ bool LoadFromFile::operator()<ImageRGB>(const char * fname, ImageRGB & obj) {
     if (nz == 3) {
         obj.nx = nx;
         obj.ny = ny;
-        ::Resize()(nx*ny, obj.pixels);
+        ::Resize()(obj.pixels, nx*ny);
         std::copy(data, data + 3*nx*ny, obj.pixels.begin());
     }
 
     if (nz == 4) {
         obj.nx = nx;
         obj.ny = ny;
-        ::Resize()(nx*ny, obj.pixels);
+        ::Resize()(obj.pixels, nx*ny);
         for (int i = 0; i < nx*ny; ++i) {
             obj.pixels[3*i + 0] = data[4*i + 0];
             obj.pixels[3*i + 1] = data[4*i + 1];
@@ -80,7 +80,7 @@ bool Free::operator()<ImageRGB>(ImageRGB & obj) {
 }
 
 template <>
-bool GenerateTexture::operator()<ImageRGB>(bool linearInterp, ImageRGB & obj) {
+bool GenerateTexture::operator()<ImageRGB>(ImageRGB & obj, bool linearInterp) {
     if (obj.texture.id >= 0) {
         GLuint texId = obj.texture.id;
         glDeleteTextures(1, &texId);

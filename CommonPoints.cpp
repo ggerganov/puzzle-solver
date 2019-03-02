@@ -9,7 +9,7 @@
 #include <fstream>
 
 template <>
-bool LoadFromFile::operator()<CommonPoints>(const char * fname, CommonPoints & obj) {
+bool LoadFromFile::operator()<CommonPoints>(CommonPoints & obj, const char * fname) {
     std::ifstream fin(fname);
     if (fin.good() == false) {
         return false;
@@ -38,7 +38,7 @@ bool LoadFromFile::operator()<CommonPoints>(const char * fname, CommonPoints & o
 }
 
 template <>
-bool SaveToFile::operator()<CommonPoints>(const char * fname, const CommonPoints & obj) {
+bool SaveToFile::operator()<CommonPoints>(const CommonPoints & obj, const char * fname) {
     std::ofstream fout(fname);
     fout << obj.size() << std::endl;
     for (auto & p : obj) {

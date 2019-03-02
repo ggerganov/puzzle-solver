@@ -85,7 +85,7 @@ int main(int argc, char ** argv) {
     StateApp stateApp;
     if (argc > 1) {
         for (int i = 1; i < argc; ++i) {
-            ::OnDragAndDrop()(argv[i], stateApp);
+            ::OnDragAndDrop()(stateApp, argv[i]);
         }
     }
 
@@ -108,7 +108,7 @@ int main(int argc, char ** argv) {
             if (event.type == SDL_DROPFILE) {
                 char * path = event.drop.file;
                 //SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "File dropped on window", path, window);
-                ::OnDragAndDrop()(path, stateApp);
+                ::OnDragAndDrop()(stateApp, path);
                 SDL_free(path);
                 break;
             }

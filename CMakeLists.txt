@@ -60,6 +60,7 @@ add_library(Core STATIC
     CommonPoint.cpp
     CommonPoints.cpp
     Texture.cpp
+    Homography.cpp
     )
 
 target_include_directories(Core PRIVATE

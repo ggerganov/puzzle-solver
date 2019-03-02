@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <cstdint>
+#include <array>
 
 struct Texture {
     int32_t id = -1;
@@ -64,6 +65,10 @@ struct CommonPoints : public std::vector<CommonPoint> {
     using vector::vector;
 };
 
+struct Homography : public std::array<float, 9> {
+    using array::array;
+};
+
 struct StateApp {
     // UI
 
@@ -71,9 +76,13 @@ struct StateApp {
         None = 0,
         LoadingImages,
         AddingCommonPoint,
+        EditingCommonPoint,
     };
 
     EAction curAction = LoadingImages;
+
+    int editId = 0;
+    int referenceId = 0;
 
     float leftPanelSizeX = 320.f;
     float loadedImagesSizeY = 400.0f;
@@ -85,4 +94,6 @@ struct StateApp {
 
     LoadedImages loadedImages;
     CommonPoints commonPoints;
+
+    std::map<int, std::map<int, Homography>> homographies;
 };

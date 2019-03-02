@@ -7,7 +7,7 @@
 #include "Functions.h"
 
 template <>
-bool Resize::operator()<BufferRGB>(const int32_t n, BufferRGB & obj) {
+bool Resize::operator()<BufferRGB>(BufferRGB & obj, const int32_t n) {
     obj.resize(3*n);
     return true;
 }

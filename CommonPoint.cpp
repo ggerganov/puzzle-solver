@@ -7,13 +7,13 @@
 #include "Functions.h"
 
 template <>
-bool Exist::operator()<CommonPoint>(const int32_t id, const CommonPoint & obj) {
+bool Exist::operator()<CommonPoint>(const CommonPoint & obj, const int32_t id) {
     return obj.posInImage.find(id) != obj.posInImage.end();
 }
 
 template <>
-bool Erase::operator()<CommonPoint>(const int32_t id, CommonPoint & obj) {
-    if (::Exist()(id, obj)) {
+bool Erase::operator()<CommonPoint>(CommonPoint & obj, const int32_t id) {
+    if (::Exist()(obj, id)) {
         obj.posInImage.erase(id);
         return true;
     }

@@ -103,6 +103,7 @@ bool Render::operator()<StateApp>(StateApp & obj) {
         const auto & selectedId = obj.loadedImages.selectedId;
 
         if (selectedId >= 0) {
+            auto & referenceImage = obj.loadedImages[referenceId].image;
             auto & selectedImage = obj.loadedImages[selectedId].image;
             ImageRGBView view = { &obj.fovSelectedImage, &selectedImage };
 
@@ -111,12 +112,23 @@ bool Render::operator()<StateApp>(StateApp & obj) {
 
             auto drawList = ImGui::GetWindowDrawList();
 
-            ImGui::Image((void *)(intptr_t) view.image->texture.id, canvasSize,
-                         ImVec2(view.fov->centerX - 0.5f*view.fov->sizeX,
-                                view.fov->centerY - 0.5f*view.fov->sizeY),
-                         ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
-                                view.fov->centerY + 0.5f*view.fov->sizeY),
-                         ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 0));
+            {
+                if (obj.showProjected && obj.projectedImage.texture.id > 0) {
+                    ImGui::Image((void *)(intptr_t) obj.projectedImage.texture.id, canvasSize,
+                                 ImVec2(view.fov->centerX - 0.5f*view.fov->sizeX,
+                                        view.fov->centerY - 0.5f*view.fov->sizeY),
+                                 ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
+                                        view.fov->centerY + 0.5f*view.fov->sizeY),
+                                 ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 0));
+                } else {
+                    ImGui::Image((void *)(intptr_t) view.image->texture.id, canvasSize,
+                                 ImVec2(view.fov->centerX - 0.5f*view.fov->sizeX,
+                                        view.fov->centerY - 0.5f*view.fov->sizeY),
+                                 ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
+                                        view.fov->centerY + 0.5f*view.fov->sizeY),
+                                 ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 0));
+                }
+            }
 
             if (ImGui::IsItemHovered()) {
                 int signW = ::sign(ImGui::GetIO().MouseWheel);
@@ -224,130 +236,176 @@ bool Render::operator()<StateApp>(StateApp & obj) {
     ImGui::SetNextWindowPos({ 0, obj.loadedImagesSizeY });
     ImGui::SetNextWindowSize({ obj.leftPanelSizeX, ImGui::GetIO().DisplaySize.y - obj.loadedImagesSizeY});
     ImGui::Begin("Actions");
-    if (obj.curAction == StateApp::LoadingImages) {
-        ImGui::PushTextWrapPos(ImGui::GetContentRegionAvailWidth());
-        ImGui::Text("Load images to analyze by drag & dropping them in the application window.");
-        if (obj.loadedImages.size() > 1) {
-            if (ImGui::Button("READY")) {
-                obj.curAction = StateApp::None;
-            }
-        }
-        ImGui::PopTextWrapPos();
-    }
+    {
+        auto & referenceId = obj.referenceId;
+        auto & selectedId = obj.loadedImages.selectedId;
 
-    if (obj.curAction == StateApp::AddingCommonPoint || obj.curAction == StateApp::EditingCommonPoint) {
-        ImGui::PushTextWrapPos(ImGui::GetContentRegionAvailWidth());
-        ImGui::Text("Select the positions of a point that is visible in at least 2 images. "
-                    "Right click on an image to clear the position in that image");
-
-        {
-            int nImages = obj.loadedImages.size();
-            for (int i = 0; i < nImages; ++i) {
-                if (::Exist()(obj.commonPointInput, i)) {
-                    ImGui::Text("Image %d : %4.2f %4.2f", i, obj.commonPointInput.posInImage[i].x, obj.commonPointInput.posInImage[i].y);
-                } else {
-                    ImGui::Text("Image %d : ---", i);
-                }
-            }
-        }
-        ImGui::PopTextWrapPos();
-
-        if (ImGui::Button("Cancel")) {
-            obj.curAction = StateApp::None;
-        }
-        if (::Count()(obj.commonPointInput) > 1) {
-            ImGui::SameLine();
-            if (obj.curAction == StateApp::AddingCommonPoint) {
-                if (ImGui::Button("Add")) {
-                    obj.commonPoints.push_back(obj.commonPointInput);
-                    obj.curAction = StateApp::None;
-                }
-            } else {
-                if (ImGui::Button("Edit")) {
-                    obj.commonPoints[obj.editId] = obj.commonPointInput;
+        if (obj.curAction == StateApp::LoadingImages) {
+            ImGui::PushTextWrapPos(ImGui::GetContentRegionAvailWidth());
+            ImGui::Text("Load images to analyze by drag & dropping them in the application window.");
+            if (obj.loadedImages.size() > 1) {
+                if (ImGui::Button("READY")) {
                     obj.curAction = StateApp::None;
                 }
             }
-        }
-    }
-
-    if (obj.curAction == StateApp::None) {
-        if (ImGui::Button("Add common point")) {
-            obj.loadedImages.selectedId = 0;
-            obj.curAction = StateApp::AddingCommonPoint;
+            ImGui::PopTextWrapPos();
         }
 
-        {
-            auto nPts = ::Count()(obj.commonPoints);
-            ImGui::Text("Common points: %d", nPts);
-            for (int i = 0; i < nPts; ++i) {
-                ImGui::PushID(i);
-                if (ImGui::SmallButton("Edit")) {
-                    obj.editId = i;
-                    obj.commonPointInput = obj.commonPoints[i];
-                    obj.curAction = StateApp::EditingCommonPoint;
-                }
-                ImGui::SameLine();
-                ImGui::Text("   Point %d - %d image(s)", i, ::Count()(obj.commonPoints[i]));
-                ImGui::PopID();
-            }
-        }
+        if (obj.curAction == StateApp::AddingCommonPoint || obj.curAction == StateApp::EditingCommonPoint) {
+            ImGui::PushTextWrapPos(ImGui::GetContentRegionAvailWidth());
+            ImGui::Text("Select the positions of a point that is visible in at least 2 images. "
+                        "Right click on an image to clear the position in that image");
 
-        if (ImGui::Button("Load common points")) {
-            ::LoadFromFile()(obj.commonPoints, "CommonPoints.dat");
-        }
-
-        if (::Count()(obj.commonPoints) > 0) {
-            if (ImGui::Button("Save common points")) {
-                ::SaveToFile()(obj.commonPoints, "CommonPoints.dat");
-            }
-        }
-
-        ImGui::Separator();
-
-        ImGui::Text("Reference image: %d", obj.referenceId);
-
-        if (ImGui::Button("Set reference")) {
-            obj.referenceId = obj.loadedImages.selectedId;
-        }
-
-        if (::Count()(obj.commonPoints) > 0) {
-            if (ImGui::Button("Calculate homographies")) {
+            {
                 int nImages = obj.loadedImages.size();
                 for (int i = 0; i < nImages; ++i) {
-                    for (int j = 0; j < nImages; ++j) {
-                        if (i == j) continue;
+                    if (::Exist()(obj.commonPointInput, i)) {
+                        ImGui::Text("Image %d : %4.2f %4.2f", i, obj.commonPointInput.posInImage[i].x, obj.commonPointInput.posInImage[i].y);
+                    } else {
+                        ImGui::Text("Image %d : ---", i);
+                    }
+                }
+            }
+            ImGui::PopTextWrapPos();
 
-                        int ni = 0;
-                        int nj = 0;
-                        std::array<Point2D, 4> pi;
-                        std::array<Point2D, 4> pj;
-                        for (auto & p : obj.commonPoints) {
-                            if (ni < 4 && ::Exist()(p, i)) {
-                                pi[ni++] = p.posInImage[i];
-                            }
-                            if (nj < 4 && ::Exist()(p, j)) {
-                                pj[nj++] = p.posInImage[j];
-                            }
-                        }
-
-                        if (ni == 4 && nj == 4) {
-                            auto homography = ::ComputeHomography()(pi, pj);
-                            printf("Homography %d -> %d\n", i, j);
-                            printf("    %6.2f %6.2f %6.2f\n", homography[0], homography[1], homography[2]);
-                            printf("    %6.2f %6.2f %6.2f\n", homography[3], homography[4], homography[5]);
-                            printf("    %6.2f %6.2f %6.2f\n", homography[6], homography[7], homography[8]);
-                            printf("\n");
-
-                            obj.homographies[i][j] = homography;
-                        }
+            if (ImGui::Button("Cancel")) {
+                obj.curAction = StateApp::None;
+            }
+            if (::Count()(obj.commonPointInput) > 1) {
+                ImGui::SameLine();
+                if (obj.curAction == StateApp::AddingCommonPoint) {
+                    if (ImGui::Button("Add")) {
+                        obj.commonPoints.push_back(obj.commonPointInput);
+                        obj.curAction = StateApp::None;
+                    }
+                } else {
+                    if (ImGui::Button("Edit")) {
+                        obj.commonPoints[obj.editId] = obj.commonPointInput;
+                        obj.curAction = StateApp::None;
                     }
                 }
             }
         }
-    }
 
-    obj.leftPanelSizeX = ImGui::GetWindowSize().x;
+        if (obj.curAction == StateApp::None) {
+            if (ImGui::Button("Add common point")) {
+                selectedId = 0;
+                obj.curAction = StateApp::AddingCommonPoint;
+            }
+
+            {
+                auto nPts = ::Count()(obj.commonPoints);
+                ImGui::Text("Common points: %d", nPts);
+                for (int i = 0; i < nPts; ++i) {
+                    ImGui::PushID(i);
+                    if (ImGui::SmallButton("Edit")) {
+                        obj.editId = i;
+                        obj.commonPointInput = obj.commonPoints[i];
+                        obj.curAction = StateApp::EditingCommonPoint;
+                    }
+                    ImGui::SameLine();
+                    ImGui::Text("   Point %d - %d image(s)", i, ::Count()(obj.commonPoints[i]));
+                    ImGui::PopID();
+                }
+            }
+
+            if (ImGui::Button("Load common points")) {
+                ::LoadFromFile()(obj.commonPoints, "CommonPoints.dat");
+            }
+
+            if (::Count()(obj.commonPoints) > 0) {
+                if (ImGui::Button("Save common points")) {
+                    ::SaveToFile()(obj.commonPoints, "CommonPoints.dat");
+                }
+            }
+
+            ImGui::Separator();
+
+            ImGui::Text("Reference image: %d", obj.referenceId);
+
+            if (ImGui::Button("Set reference")) {
+                referenceId = selectedId;
+            }
+
+            if (::Count()(obj.commonPoints) > 0) {
+                if (ImGui::Button("Calculate homographies")) {
+                    int nImages = obj.loadedImages.size();
+                    for (int i = 0; i < nImages; ++i) {
+                        for (int j = 0; j < nImages; ++j) {
+                            if (i == j) continue;
+
+                            int ni = 0;
+                            int nj = 0;
+                            std::array<Point2D, 4> pi;
+                            std::array<Point2D, 4> pj;
+                            for (auto & p : obj.commonPoints) {
+                                if (ni < 4 && ::Exist()(p, i)) {
+                                    pi[ni++] = p.posInImage[i];
+                                }
+                                if (nj < 4 && ::Exist()(p, j)) {
+                                    pj[nj++] = p.posInImage[j];
+                                }
+                            }
+
+                            if (ni == 4 && nj == 4) {
+                                auto homography = ::ComputeHomography()(pi, pj);
+                                printf("Homography %d -> %d\n", i, j);
+                                printf("    %6.2f %6.2f %6.2f\n", homography[0], homography[1], homography[2]);
+                                printf("    %6.2f %6.2f %6.2f\n", homography[3], homography[4], homography[5]);
+                                printf("    %6.2f %6.2f %6.2f\n", homography[6], homography[7], homography[8]);
+                                printf("\n");
+
+                                obj.homographies[i][j] = homography;
+                            }
+                        }
+                    }
+                }
+            }
+
+            ImGui::Checkbox("Show projected", &obj.showProjected);
+            if (ImGui::Button("Project")) {
+                const auto & h = obj.homographies[selectedId][referenceId];
+
+                const auto & referenceImage = obj.loadedImages[referenceId].image;
+                const auto & selectedImage = obj.loadedImages[selectedId].image;
+                auto & projectedImage = obj.projectedImage;
+
+                int nx = referenceImage.nx;
+                int ny = referenceImage.ny;
+
+                ::Resize()(projectedImage, nx, ny);
+
+                for (int y = 0; y < ny; ++y) {
+                    float oy = ((float)(y) + 0.5f)/ny;
+                    for (int x = 0; x < nx; ++x) {
+                        float ox = ((float)(x) + 0.5f)/nx;
+
+                        float tx = (h[0]*ox + h[1]*oy + h[2])/(h[6]*ox + h[7]*oy + h[8]);
+                        float ty = (h[3]*ox + h[4]*oy + h[5])/(h[6]*ox + h[7]*oy + h[8]);
+
+                        int ix = tx*nx - 0.5f;
+                        int iy = ty*ny - 0.5f;
+
+                        // todo: implement setter
+                        if (ix < 0 || ix >= nx || iy < 0 || iy >= ny) {
+                            projectedImage.pixels[3*(y*nx + x) + 0] = 0;
+                            projectedImage.pixels[3*(y*nx + x) + 1] = 0;
+                            projectedImage.pixels[3*(y*nx + x) + 2] = 0;
+                        } else {
+                            projectedImage.pixels[3*(y*nx + x) + 0] = referenceImage.pixels[3*(iy*nx + ix) + 0];
+                            projectedImage.pixels[3*(y*nx + x) + 1] = referenceImage.pixels[3*(iy*nx + ix) + 1];
+                            projectedImage.pixels[3*(y*nx + x) + 2] = referenceImage.pixels[3*(iy*nx + ix) + 2];
+                        }
+                    }
+                }
+
+                ::GenerateTexture()(projectedImage, true);
+            }
+
+        }
+
+        obj.leftPanelSizeX = ImGui::GetWindowSize().x;
+    }
     ImGui::End();
 
     return res;

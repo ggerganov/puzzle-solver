@@ -44,7 +44,7 @@ struct FieldOfView {
 
 struct ImageRGBView {
     FieldOfView * fov = nullptr;
-    ImageRGB *image = nullptr;
+    ImageRGB * image = nullptr;
 };
 
 struct LoadedImage {
@@ -81,6 +81,8 @@ struct StateApp {
 
     EAction curAction = LoadingImages;
 
+    bool showProjected = true;
+
     int editId = 0;
     int referenceId = 0;
 
@@ -94,6 +96,7 @@ struct StateApp {
 
     LoadedImages loadedImages;
     CommonPoints commonPoints;
+    ImageRGB projectedImage;
 
     std::map<int, std::map<int, Homography>> homographies;
 };

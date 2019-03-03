@@ -82,12 +82,13 @@ struct StateApp {
     EAction curAction = LoadingImages;
 
     bool showProjected = true;
+    bool showGrid = true;
 
     int editId = 0;
     int referenceId = 0;
 
     float leftPanelSizeX = 320.f;
-    float loadedImagesSizeY = 400.0f;
+    float loadedImagesSizeY = 200.0f;
 
     FieldOfView fovSelectedImage;
     CommonPoint commonPointInput;

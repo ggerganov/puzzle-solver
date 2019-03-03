@@ -13,6 +13,8 @@ namespace {
         return (T(0) < val) - (val < T(0));
     }
 
+    float frand() { return (float)(rand())/RAND_MAX; }
+
     ImVec2 toCanvas(const ::Point2D & p, const ImVec2 & canvasPos, const ImVec2 & canvasSize, const ::FieldOfView & fov ) {
         auto [cx, cy] = p;
 
@@ -192,7 +194,7 @@ bool Render::operator()<StateApp>(StateApp & obj) {
                 }
 
                 // tmp
-                {
+                if (obj.showGrid) {
                     int gn = 64;
                     for (int gi = gn/4; gi < gn - gn/4; ++gi) {
                         float fy = (((float)(gi) + 0.5f)/gn);
@@ -334,20 +336,20 @@ bool Render::operator()<StateApp>(StateApp & obj) {
                         for (int j = 0; j < nImages; ++j) {
                             if (i == j) continue;
 
-                            int ni = 0;
-                            int nj = 0;
+                            int np = 0;
                             std::array<Point2D, 4> pi;
                             std::array<Point2D, 4> pj;
                             for (auto & p : obj.commonPoints) {
-                                if (ni < 4 && ::Exist()(p, i)) {
-                                    pi[ni++] = p.posInImage[i];
+                                if (::Exist()(p, i) && ::Exist()(p, j)) {
+                                    pi[np] = p.posInImage[i];
+                                    pj[np] = p.posInImage[j];
+                                    ++np;
                                 }
-                                if (nj < 4 && ::Exist()(p, j)) {
-                                    pj[nj++] = p.posInImage[j];
-                                }
+
+                                if (np == 4) break;
                             }
 
-                            if (ni == 4 && nj == 4) {
+                            if (np == 4) {
                                 auto homography = ::ComputeHomography()(pi, pj);
                                 printf("Homography %d -> %d\n", i, j);
                                 printf("    %6.2f %6.2f %6.2f\n", homography[0], homography[1], homography[2]);
@@ -362,9 +364,11 @@ bool Render::operator()<StateApp>(StateApp & obj) {
                 }
             }
 
+            ImGui::Checkbox("Show grid", &obj.showGrid);
             ImGui::Checkbox("Show projected", &obj.showProjected);
+
             if (ImGui::Button("Project")) {
-                const auto & h = obj.homographies[selectedId][referenceId];
+                auto & hbest = obj.homographies[selectedId][referenceId];
 
                 const auto & referenceImage = obj.loadedImages[referenceId].image;
                 const auto & selectedImage = obj.loadedImages[selectedId].image;
@@ -375,27 +379,85 @@ bool Render::operator()<StateApp>(StateApp & obj) {
 
                 ::Resize()(projectedImage, nx, ny);
 
-                for (int y = 0; y < ny; ++y) {
-                    float oy = ((float)(y) + 0.5f)/ny;
-                    for (int x = 0; x < nx; ++x) {
-                        float ox = ((float)(x) + 0.5f)/nx;
+                int kMaxIters = 1;
+                double simBest = 1e30;
 
-                        float tx = (h[0]*ox + h[1]*oy + h[2])/(h[6]*ox + h[7]*oy + h[8]);
-                        float ty = (h[3]*ox + h[4]*oy + h[5])/(h[6]*ox + h[7]*oy + h[8]);
+                int iter = 0;
+                while (true) {
+                    int nvals = 0;
+                    double simCur = 0.0;
 
-                        int ix = tx*nx - 0.5f;
-                        int iy = ty*ny - 0.5f;
+                    auto hcur = hbest;
 
-                        // todo: implement setter
-                        if (ix < 0 || ix >= nx || iy < 0 || iy >= ny) {
-                            projectedImage.pixels[3*(y*nx + x) + 0] = 0;
-                            projectedImage.pixels[3*(y*nx + x) + 1] = 0;
-                            projectedImage.pixels[3*(y*nx + x) + 2] = 0;
-                        } else {
-                            projectedImage.pixels[3*(y*nx + x) + 0] = referenceImage.pixels[3*(iy*nx + ix) + 0];
-                            projectedImage.pixels[3*(y*nx + x) + 1] = referenceImage.pixels[3*(iy*nx + ix) + 1];
-                            projectedImage.pixels[3*(y*nx + x) + 2] = referenceImage.pixels[3*(iy*nx + ix) + 2];
+                    if (simBest < 1e20) {
+                        hcur[rand()%9] += 0.1f*(frand() - 0.5f);
+                    }
+
+                    for (int y = 0; y < ny; ++y) {
+                        float oy = ((float)(y) + 0.5f)/ny;
+                        for (int x = 0; x < nx; ++x) {
+                            float ox = ((float)(x) + 0.5f)/nx;
+
+                            float tx = (hcur[0]*ox + hcur[1]*oy + hcur[2])/(hcur[6]*ox + hcur[7]*oy + hcur[8]);
+                            float ty = (hcur[3]*ox + hcur[4]*oy + hcur[5])/(hcur[6]*ox + hcur[7]*oy + hcur[8]);
+
+                            int ix = tx*nx - 0.5f;
+                            int iy = ty*ny - 0.5f;
+
+                            // todo: implement setter
+                            if (ix < 0 || ix >= nx || iy < 0 || iy >= ny) {
+                                projectedImage.pixels[3*(y*nx + x) + 0] = 0;
+                                projectedImage.pixels[3*(y*nx + x) + 1] = 0;
+                                projectedImage.pixels[3*(y*nx + x) + 2] = 0;
+                            } else {
+                                projectedImage.pixels[3*(y*nx + x) + 0] = referenceImage.pixels[3*(iy*nx + ix) + 0];
+                                projectedImage.pixels[3*(y*nx + x) + 1] = referenceImage.pixels[3*(iy*nx + ix) + 1];
+                                projectedImage.pixels[3*(y*nx + x) + 2] = referenceImage.pixels[3*(iy*nx + ix) + 2];
+
+                                int vbest = 9999999;
+                                int w = 10;
+
+                                for (int wy = -w; wy <= w; ++wy) {
+                                    if (y + wy < 0 || y + wy >= ny) continue;
+                                    for (int wx = -w; wx <= w; ++wx) {
+                                        if (x + wx < 0 || x + wx >= nx) continue;
+                                        int r = std::abs((int)selectedImage.pixels[3*((y + wy)*nx + (x + wx)) + 0] - (int)projectedImage.pixels[3*(y*nx + x) + 0]);
+                                        int g = std::abs((int)selectedImage.pixels[3*((y + wy)*nx + (x + wx)) + 1] - (int)projectedImage.pixels[3*(y*nx + x) + 1]);
+                                        int b = std::abs((int)selectedImage.pixels[3*((y + wy)*nx + (x + wx)) + 2] - (int)projectedImage.pixels[3*(y*nx + x) + 2]);
+                                        int v = std::min(255, (r+g+b)/3);
+                                        if (v < vbest) {
+                                            vbest = v;
+                                        }
+                                    }
+                                }
+
+                                projectedImage.pixels[3*(y*nx + x) + 0] = vbest;
+                                projectedImage.pixels[3*(y*nx + x) + 1] = vbest;
+                                projectedImage.pixels[3*(y*nx + x) + 2] = vbest;
+
+                                simCur +=
+                                    (projectedImage.pixels[3*(y*nx + x) + 0] - selectedImage.pixels[3*(y*nx + x) + 0])*
+                                    (projectedImage.pixels[3*(y*nx + x) + 0] - selectedImage.pixels[3*(y*nx + x) + 0])+
+                                    (projectedImage.pixels[3*(y*nx + x) + 1] - selectedImage.pixels[3*(y*nx + x) + 1])*
+                                    (projectedImage.pixels[3*(y*nx + x) + 1] - selectedImage.pixels[3*(y*nx + x) + 1])+
+                                    (projectedImage.pixels[3*(y*nx + x) + 2] - selectedImage.pixels[3*(y*nx + x) + 2])*
+                                    (projectedImage.pixels[3*(y*nx + x) + 2] - selectedImage.pixels[3*(y*nx + x) + 2]);
+                                ++nvals;
+                            }
                         }
+                    }
+
+                    simCur /= nvals;
+
+                    if (simCur < simBest) {
+                        simBest = simCur;
+                        hbest = hcur;
+                        iter = 0;
+                        printf("Updated homography. Sim = %g\n", simBest);
+                    }
+
+                    if (++iter >= kMaxIters) {
+                        break;
                     }
                 }
 

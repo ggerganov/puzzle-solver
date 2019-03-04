@@ -144,7 +144,7 @@ bool Render::operator()<ViewActions>(ViewActions & obj, StateApp & state) {
             const auto & referenceImage = state.loadedImages[referenceId].image;
             const auto & selectedImage = state.loadedImages[selectedId].image;
 
-            auto & projectedImage = state.projectedImage;
+            auto & projectedImage = state.images[StateApp::Projected];
             auto & homography = state.homographies[selectedId][referenceId];
 
             int nx = referenceImage.nx;
@@ -155,7 +155,13 @@ bool Render::operator()<ViewActions>(ViewActions & obj, StateApp & state) {
             ::GenerateTexture()(projectedImage, true);
         }
 
-        if (ImGui::Button("Calculate difference")) {
+        if (::IsValid()(state.images[StateApp::Projected])) {
+            const auto & projectedImage = state.images[StateApp::Projected];
+            const auto & selectedImage = state.loadedImages[selectedId].image;
+
+            if (ImGui::Button("Calculate difference")) {
+                state.images[StateApp::DifferenceStandard] = ::ComputeDifference{::ComputeDifference::Standard}(selectedImage, projectedImage);
+            }
         }
     }
 

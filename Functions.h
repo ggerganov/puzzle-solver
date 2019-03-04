@@ -31,6 +31,10 @@ struct Render {
     template <typename T> bool operator()(T & obj, struct StateApp & state);
 };
 
+struct IsValid {
+    template <typename T> bool operator()(const T & obj);
+};
+
 struct Exist {
     template <typename T> bool operator()(const T & obj, const int32_t id);
     template <typename T> bool operator()(const T & obj, const char * fname);
@@ -58,4 +62,12 @@ struct ComputeHomography {
     } method;
 
     template <typename T> struct Homography operator()(const std::array<T, 4> & p0, const std::array<T, 4> & p1);
+};
+
+struct ComputeDifference {
+    enum Method {
+        Standard = 0,
+    } method;
+
+    template <typename T> T operator()(const T & obj0, const T & obj1);
 };

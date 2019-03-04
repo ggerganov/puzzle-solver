@@ -74,6 +74,7 @@ bool LoadFromFile::operator()<ImageRGB>(ImageRGB & obj, const char * fname) {
 
 template <>
 bool Free::operator()<ImageRGB>(ImageRGB & obj) {
+    printf("Destroying OpenGL texture %d\n", obj.texture.id);
     this->operator()(obj.texture);
 
     return true;
@@ -81,16 +82,13 @@ bool Free::operator()<ImageRGB>(ImageRGB & obj) {
 
 template <>
 bool GenerateTexture::operator()<ImageRGB>(ImageRGB & obj, bool linearInterp) {
-    if (obj.texture.id >= 0) {
-        GLuint texId = obj.texture.id;
-        glDeleteTextures(1, &texId);
-    }
-
     obj.texture = Texture();
 
     GLuint texId;
     glGenTextures(1, &texId);
     glBindTexture(GL_TEXTURE_2D, texId);
+
+    printf("Allocating OpenGL texture %d\n", obj.texture.id);
 
     GLenum filter = (linearInterp) ? GL_LINEAR : GL_NEAREST;
 
@@ -116,4 +114,29 @@ bool GenerateTexture::operator()<ImageRGB>(ImageRGB & obj, bool linearInterp) {
     obj.texture.id = texId;
 
     return true;
+}
+
+template <>
+bool IsValid::operator()<ImageRGB>(const ImageRGB & obj) {
+    return obj.nx > 0 && obj.ny > 0 && ::Count()(obj.pixels) == (obj.nx*obj.ny) && this->operator()(obj.texture);
+}
+
+template <>
+ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const ImageRGB & obj1) {
+    ImageRGB result;
+
+    switch (method) {
+        case Standard:
+            {
+                result = obj0;
+                for (int i = 0; i < obj0.pixels.size(); ++i) {
+                    result.pixels[i] = std::abs((int)(result.pixels[i]) - obj1.pixels[i]);
+                }
+            }
+        break;
+    }
+
+    ::GenerateTexture()(result, true);
+
+    return result;
 }

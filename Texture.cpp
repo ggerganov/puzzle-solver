@@ -15,9 +15,13 @@ bool Free::operator()<Texture>(Texture & obj) {
     }
 
     GLuint texId = obj.id;
-    printf("Destroying OpenGL texture %d\n", texId);
     glDeleteTextures(1, &texId);
     obj.id = -1;
 
     return true;
+}
+
+template <>
+bool IsValid::operator()<Texture>(const Texture & obj) {
+    return obj.id > 0;
 }

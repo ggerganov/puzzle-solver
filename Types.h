@@ -65,9 +65,11 @@ struct CommonPoint {
 
 struct ViewSelectedImage {
     bool showGrid = true;
-    bool showProjected = true;
+    bool showOverlay = true;
 
-    float alphaProjected = 1.0f;
+    int32_t overlayId = 0;
+
+    float alphaOverlay = 1.0f;
 
     FieldOfView fov;
     CommonPoint commonPointInput;
@@ -90,6 +92,11 @@ struct StateApp {
         EditingCommonPoint,
     };
 
+    enum EImage {
+        Projected = 0,
+        DifferenceStandard,
+    };
+
     EAction curAction = LoadingImages;
 
     float leftPanelSizeX = 320.f;
@@ -101,8 +108,7 @@ struct StateApp {
 
     // Data
 
-    ImageRGB projectedImage;
-
+    std::map<EImage, ImageRGB> images;
     std::vector<CommonPoint> commonPoints;
     std::vector<LoadedImage> loadedImages;
     std::map<int, std::map<int, Homography>> homographies;

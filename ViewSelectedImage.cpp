@@ -34,9 +34,10 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
     const auto & selectedId = state.viewLoadedImages.selectedId;
 
     if (selectedId >= 0) {
+        auto & overlayImage = state.images[(StateApp::EImage)(obj.overlayId)];
+
         auto & referenceImage = state.loadedImages[referenceId].image;
         auto & selectedImage = state.loadedImages[selectedId].image;
-        auto & projectedImage = state.projectedImage;
 
         ImageRGBView view = { &obj.fov, &selectedImage };
 
@@ -46,7 +47,7 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
         auto drawList = ImGui::GetWindowDrawList();
 
         {
-            auto hasProjected = obj.showProjected && projectedImage.texture.id > 0;
+            auto renderOverlay = obj.showOverlay && ::IsValid()(overlayImage);
 
             auto savePos = ImGui::GetCursorScreenPos();
             ImGui::Image((void *)(intptr_t) view.image->texture.id, canvasSize,
@@ -54,16 +55,16 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
                                 view.fov->centerY - 0.5f*view.fov->sizeY),
                          ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
                                 view.fov->centerY + 0.5f*view.fov->sizeY),
-                         ImColor(255, 255, 255, hasProjected ? (int) (255*(1.0f - obj.alphaProjected)) : 255), ImColor(255, 255, 255, 0));
+                         ImColor(255, 255, 255, renderOverlay ? (int) (255*(1.0f - obj.alphaOverlay)) : 255), ImColor(255, 255, 255, 0));
 
-            if (hasProjected) {
+            if (renderOverlay) {
                 ImGui::SetCursorScreenPos(savePos);
-                ImGui::Image((void *)(intptr_t) projectedImage.texture.id, canvasSize,
+                ImGui::Image((void *)(intptr_t) overlayImage.texture.id, canvasSize,
                              ImVec2(view.fov->centerX - 0.5f*view.fov->sizeX,
                                     view.fov->centerY - 0.5f*view.fov->sizeY),
                              ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
                                     view.fov->centerY + 0.5f*view.fov->sizeY),
-                             ImColor(255, 255, 255, (int) (255*obj.alphaProjected)), ImColor(255, 255, 255, 0));
+                             ImColor(255, 255, 255, (int) (255*obj.alphaOverlay)), ImColor(255, 255, 255, 0));
             }
         }
 
@@ -120,9 +121,15 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
 
         if (ImGui::BeginPopupContextWindow("Options", 1)) {
             ImGui::Checkbox("Show grid", &obj.showGrid);
-            ImGui::Checkbox("Show projected", &obj.showProjected);
+            ImGui::Checkbox("Show overlay", &obj.showOverlay);
 
-            ImGui::SliderFloat("Alpha projected", &obj.alphaProjected, 0.0f, 1.0f);
+            ImGui::SliderFloat("Alpha overlay", &obj.alphaOverlay, 0.0f, 1.0f);
+
+            if (ImGui::BeginCombo("Overlay image", std::to_string(obj.overlayId).c_str())) {
+                { bool isSelected = obj.overlayId == 0; if (ImGui::Selectable("Projected", isSelected)) obj.overlayId = 0; }
+                { bool isSelected = obj.overlayId == 1; if (ImGui::Selectable("Difference (standard)", isSelected)) obj.overlayId = 1; }
+                ImGui::EndCombo();
+            }
 
             ImGui::EndPopup();
         }

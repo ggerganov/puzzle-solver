@@ -6,6 +6,8 @@
 #include "Types.h"
 #include "Functions.h"
 
+#include "ggimg/ggimg.h"
+
 #include "imgui/imgui.h"
 
 namespace {
@@ -325,7 +327,7 @@ bool Render::operator()<StateApp>(StateApp & obj) {
 
             ImGui::Text("Reference image: %d", obj.referenceId);
 
-            if (ImGui::Button("Set reference")) {
+            if (ImGui::Button("Set reference image")) {
                 referenceId = selectedId;
             }
 
@@ -378,89 +380,7 @@ bool Render::operator()<StateApp>(StateApp & obj) {
                 int ny = referenceImage.ny;
 
                 ::Resize()(projectedImage, nx, ny);
-
-                int kMaxIters = 1;
-                double simBest = 1e30;
-
-                int iter = 0;
-                while (true) {
-                    int nvals = 0;
-                    double simCur = 0.0;
-
-                    auto hcur = hbest;
-
-                    if (simBest < 1e20) {
-                        hcur[rand()%9] += 0.1f*(frand() - 0.5f);
-                    }
-
-                    for (int y = 0; y < ny; ++y) {
-                        float oy = ((float)(y) + 0.5f)/ny;
-                        for (int x = 0; x < nx; ++x) {
-                            float ox = ((float)(x) + 0.5f)/nx;
-
-                            float tx = (hcur[0]*ox + hcur[1]*oy + hcur[2])/(hcur[6]*ox + hcur[7]*oy + hcur[8]);
-                            float ty = (hcur[3]*ox + hcur[4]*oy + hcur[5])/(hcur[6]*ox + hcur[7]*oy + hcur[8]);
-
-                            int ix = tx*nx - 0.5f;
-                            int iy = ty*ny - 0.5f;
-
-                            // todo: implement setter
-                            if (ix < 0 || ix >= nx || iy < 0 || iy >= ny) {
-                                projectedImage.pixels[3*(y*nx + x) + 0] = 0;
-                                projectedImage.pixels[3*(y*nx + x) + 1] = 0;
-                                projectedImage.pixels[3*(y*nx + x) + 2] = 0;
-                            } else {
-                                projectedImage.pixels[3*(y*nx + x) + 0] = referenceImage.pixels[3*(iy*nx + ix) + 0];
-                                projectedImage.pixels[3*(y*nx + x) + 1] = referenceImage.pixels[3*(iy*nx + ix) + 1];
-                                projectedImage.pixels[3*(y*nx + x) + 2] = referenceImage.pixels[3*(iy*nx + ix) + 2];
-
-                                int vbest = 9999999;
-                                int w = 10;
-
-                                for (int wy = -w; wy <= w; ++wy) {
-                                    if (y + wy < 0 || y + wy >= ny) continue;
-                                    for (int wx = -w; wx <= w; ++wx) {
-                                        if (x + wx < 0 || x + wx >= nx) continue;
-                                        int r = std::abs((int)selectedImage.pixels[3*((y + wy)*nx + (x + wx)) + 0] - (int)projectedImage.pixels[3*(y*nx + x) + 0]);
-                                        int g = std::abs((int)selectedImage.pixels[3*((y + wy)*nx + (x + wx)) + 1] - (int)projectedImage.pixels[3*(y*nx + x) + 1]);
-                                        int b = std::abs((int)selectedImage.pixels[3*((y + wy)*nx + (x + wx)) + 2] - (int)projectedImage.pixels[3*(y*nx + x) + 2]);
-                                        int v = std::min(255, (r+g+b)/3);
-                                        if (v < vbest) {
-                                            vbest = v;
-                                        }
-                                    }
-                                }
-
-                                projectedImage.pixels[3*(y*nx + x) + 0] = vbest;
-                                projectedImage.pixels[3*(y*nx + x) + 1] = vbest;
-                                projectedImage.pixels[3*(y*nx + x) + 2] = vbest;
-
-                                simCur +=
-                                    (projectedImage.pixels[3*(y*nx + x) + 0] - selectedImage.pixels[3*(y*nx + x) + 0])*
-                                    (projectedImage.pixels[3*(y*nx + x) + 0] - selectedImage.pixels[3*(y*nx + x) + 0])+
-                                    (projectedImage.pixels[3*(y*nx + x) + 1] - selectedImage.pixels[3*(y*nx + x) + 1])*
-                                    (projectedImage.pixels[3*(y*nx + x) + 1] - selectedImage.pixels[3*(y*nx + x) + 1])+
-                                    (projectedImage.pixels[3*(y*nx + x) + 2] - selectedImage.pixels[3*(y*nx + x) + 2])*
-                                    (projectedImage.pixels[3*(y*nx + x) + 2] - selectedImage.pixels[3*(y*nx + x) + 2]);
-                                ++nvals;
-                            }
-                        }
-                    }
-
-                    simCur /= nvals;
-
-                    if (simCur < simBest) {
-                        simBest = simCur;
-                        hbest = hcur;
-                        iter = 0;
-                        printf("Updated homography. Sim = %g\n", simBest);
-                    }
-
-                    if (++iter >= kMaxIters) {
-                        break;
-                    }
-                }
-
+                ::ggimg::transform_homography_rgb_nn(nx, ny, referenceImage.pixels.data(), hbest, nx, ny, projectedImage.pixels.data());
                 ::GenerateTexture()(projectedImage, true);
             }
 

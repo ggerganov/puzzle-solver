@@ -56,7 +56,9 @@ add_library(Core STATIC
     ImageRGB.cpp
     StateApp.cpp
     LoadedImage.cpp
-    LoadedImages.cpp
+    ViewLoadedImages.cpp
+    ViewSelectedImage.cpp
+    ViewActions.cpp
     CommonPoint.cpp
     CommonPoints.cpp
     Texture.cpp

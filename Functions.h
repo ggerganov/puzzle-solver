@@ -28,6 +28,7 @@ struct OnDragAndDrop {
 
 struct Render {
     template <typename T> bool operator()(T & obj);
+    template <typename T> bool operator()(T & obj, struct StateApp & state);
 };
 
 struct Exist {

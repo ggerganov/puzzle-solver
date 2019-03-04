@@ -52,7 +52,9 @@ struct LoadedImage {
     ImageRGB image;
 };
 
-struct LoadedImages : public std::vector<LoadedImage> {
+struct ViewLoadedImages {
+    int32_t editId = 0;
+    int32_t referenceId = 0;
     int32_t selectedId = -1;
 };
 
@@ -63,6 +65,17 @@ struct CommonPoint {
 
 struct CommonPoints : public std::vector<CommonPoint> {
     using vector::vector;
+};
+
+struct ViewSelectedImage {
+    bool showGrid = true;
+    bool showProjected = true;
+
+    FieldOfView fov;
+    CommonPoint commonPointInput;
+};
+
+struct ViewActions {
 };
 
 struct Homography : public std::array<float, 9> {
@@ -81,23 +94,18 @@ struct StateApp {
 
     EAction curAction = LoadingImages;
 
-    bool showProjected = true;
-    bool showGrid = true;
-
-    int editId = 0;
-    int referenceId = 0;
-
     float leftPanelSizeX = 320.f;
     float loadedImagesSizeY = 200.0f;
 
-    FieldOfView fovSelectedImage;
-    CommonPoint commonPointInput;
+    ViewLoadedImages viewLoadedImages;
+    ViewSelectedImage viewSelectedImage;
+    ViewActions viewActions;
 
     // Data
 
-    LoadedImages loadedImages;
     CommonPoints commonPoints;
     ImageRGB projectedImage;
 
+    std::vector<LoadedImage> loadedImages;
     std::map<int, std::map<int, Homography>> homographies;
 };

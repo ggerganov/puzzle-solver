@@ -63,13 +63,11 @@ struct CommonPoint {
     std::map<ImageId, Point2D> posInImage;
 };
 
-struct CommonPoints : public std::vector<CommonPoint> {
-    using vector::vector;
-};
-
 struct ViewSelectedImage {
     bool showGrid = true;
     bool showProjected = true;
+
+    float alphaProjected = 1.0f;
 
     FieldOfView fov;
     CommonPoint commonPointInput;
@@ -103,9 +101,9 @@ struct StateApp {
 
     // Data
 
-    CommonPoints commonPoints;
     ImageRGB projectedImage;
 
+    std::vector<CommonPoint> commonPoints;
     std::vector<LoadedImage> loadedImages;
     std::map<int, std::map<int, Homography>> homographies;
 };

@@ -34,7 +34,10 @@ bool Render::operator()<ViewActions>(ViewActions & obj, StateApp & state) {
             int nImages = state.loadedImages.size();
             for (int i = 0; i < nImages; ++i) {
                 if (::Exist()(state.viewSelectedImage.commonPointInput, i)) {
-                    ImGui::Text("Image %d : %4.2f %4.2f", i, state.viewSelectedImage.commonPointInput.posInImage[i].x, state.viewSelectedImage.commonPointInput.posInImage[i].y);
+                    float x = state.viewSelectedImage.commonPointInput.posInImage[i].x;
+                    float y = state.viewSelectedImage.commonPointInput.posInImage[i].y;
+
+                    ImGui::Text("Image %d : %4.2f %4.2f", i, x, y);
                 } else {
                     ImGui::Text("Image %d : ---", i);
                 }
@@ -109,8 +112,6 @@ bool Render::operator()<ViewActions>(ViewActions & obj, StateApp & state) {
                 int nImages = state.loadedImages.size();
                 for (int i = 0; i < nImages; ++i) {
                     for (int j = 0; j < nImages; ++j) {
-                        if (i == j) continue;
-
                         int np = 0;
                         std::array<Point2D, 4> pi;
                         std::array<Point2D, 4> pj;
@@ -139,10 +140,7 @@ bool Render::operator()<ViewActions>(ViewActions & obj, StateApp & state) {
             }
         }
 
-        ImGui::Checkbox("Show grid", &state.viewSelectedImage.showGrid);
-        ImGui::Checkbox("Show projected", &state.viewSelectedImage.showProjected);
-
-        if (ImGui::Button("Project")) {
+        if (ImGui::Button("Project reference")) {
             const auto & referenceImage = state.loadedImages[referenceId].image;
             const auto & selectedImage = state.loadedImages[selectedId].image;
 
@@ -157,6 +155,8 @@ bool Render::operator()<ViewActions>(ViewActions & obj, StateApp & state) {
             ::GenerateTexture()(projectedImage, true);
         }
 
+        if (ImGui::Button("Calculate difference")) {
+        }
     }
 
     state.leftPanelSizeX = ImGui::GetWindowSize().x;

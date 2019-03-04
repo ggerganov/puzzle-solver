@@ -60,7 +60,6 @@ add_library(Core STATIC
     ViewSelectedImage.cpp
     ViewActions.cpp
     CommonPoint.cpp
-    CommonPoints.cpp
     Texture.cpp
     Homography.cpp
     )

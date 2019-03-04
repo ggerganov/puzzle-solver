@@ -46,20 +46,24 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
         auto drawList = ImGui::GetWindowDrawList();
 
         {
-            if (obj.showProjected && projectedImage.texture.id > 0) {
+            auto hasProjected = obj.showProjected && projectedImage.texture.id > 0;
+
+            auto savePos = ImGui::GetCursorScreenPos();
+            ImGui::Image((void *)(intptr_t) view.image->texture.id, canvasSize,
+                         ImVec2(view.fov->centerX - 0.5f*view.fov->sizeX,
+                                view.fov->centerY - 0.5f*view.fov->sizeY),
+                         ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
+                                view.fov->centerY + 0.5f*view.fov->sizeY),
+                         ImColor(255, 255, 255, hasProjected ? (int) (255*(1.0f - obj.alphaProjected)) : 255), ImColor(255, 255, 255, 0));
+
+            if (hasProjected) {
+                ImGui::SetCursorScreenPos(savePos);
                 ImGui::Image((void *)(intptr_t) projectedImage.texture.id, canvasSize,
                              ImVec2(view.fov->centerX - 0.5f*view.fov->sizeX,
                                     view.fov->centerY - 0.5f*view.fov->sizeY),
                              ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
                                     view.fov->centerY + 0.5f*view.fov->sizeY),
-                             ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 0));
-            } else {
-                ImGui::Image((void *)(intptr_t) view.image->texture.id, canvasSize,
-                             ImVec2(view.fov->centerX - 0.5f*view.fov->sizeX,
-                                    view.fov->centerY - 0.5f*view.fov->sizeY),
-                             ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
-                                    view.fov->centerY + 0.5f*view.fov->sizeY),
-                             ImColor(255, 255, 255, 255), ImColor(255, 255, 255, 0));
+                             ImColor(255, 255, 255, (int) (255*obj.alphaProjected)), ImColor(255, 255, 255, 0));
             }
         }
 
@@ -112,6 +116,15 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
             if (ImGui::IsMouseClicked(1)) {
                 ::Erase()(obj.commonPointInput, selectedId);
             }
+        }
+
+        if (ImGui::BeginPopupContextWindow("Options", 1)) {
+            ImGui::Checkbox("Show grid", &obj.showGrid);
+            ImGui::Checkbox("Show projected", &obj.showProjected);
+
+            ImGui::SliderFloat("Alpha projected", &obj.alphaProjected, 0.0f, 1.0f);
+
+            ImGui::EndPopup();
         }
 
         if (state.curAction == StateApp::None) {

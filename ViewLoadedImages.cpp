@@ -50,17 +50,3 @@ bool Render::operator()<ViewLoadedImages>(ViewLoadedImages & obj, StateApp & sta
 
     return res;
 }
-
-template <>
-bool Exist::operator()<std::vector<LoadedImage>>(const std::vector<LoadedImage> & obj, const char * fname) {
-    bool res = false;
-
-    for (const auto & cur : obj) {
-        if (cur.fname == fname) {
-            res = true;
-            break;
-        }
-    }
-
-    return res;
-}

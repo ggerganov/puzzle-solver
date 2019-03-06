@@ -88,8 +88,6 @@ bool GenerateTexture::operator()<ImageRGB>(ImageRGB & obj, bool linearInterp) {
     glGenTextures(1, &texId);
     glBindTexture(GL_TEXTURE_2D, texId);
 
-    printf("Allocating OpenGL texture %d\n", obj.texture.id);
-
     GLenum filter = (linearInterp) ? GL_LINEAR : GL_NEAREST;
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
@@ -113,6 +111,8 @@ bool GenerateTexture::operator()<ImageRGB>(ImageRGB & obj, bool linearInterp) {
 
     obj.texture.id = texId;
 
+    printf("Allocated  OpenGL texture %d\n", obj.texture.id);
+
     return true;
 }
 
@@ -129,8 +129,76 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
         case Standard:
             {
                 result = obj0;
-                for (int i = 0; i < obj0.pixels.size(); ++i) {
-                    result.pixels[i] = std::abs((int)(result.pixels[i]) - obj1.pixels[i]);
+                int n = result.nx*result.ny;
+                for (int i = 0; i < n; ++i) {
+                    if (obj1.pixels[3*i + 0] == 0 &&
+                        obj1.pixels[3*i + 1] == 0 &&
+                        obj1.pixels[3*i + 2] == 0) {
+                        result.pixels[3*i + 0] = 0;
+                        result.pixels[3*i + 1] = 0;
+                        result.pixels[3*i + 2] = 0;
+                        continue;
+                    }
+
+                    result.pixels[3*i + 0] = std::abs((int)(result.pixels[3*i + 0]) - obj1.pixels[3*i + 0]);
+                    result.pixels[3*i + 1] = std::abs((int)(result.pixels[3*i + 1]) - obj1.pixels[3*i + 1]);
+                    result.pixels[3*i + 2] = std::abs((int)(result.pixels[3*i + 2]) - obj1.pixels[3*i + 2]);
+                }
+            }
+        break;
+        case LocalDiff:
+            {
+                result = obj0;
+                int nx = result.nx;
+                int ny = result.ny;
+                int n = nx*ny;
+
+                int w = 1;
+                int ws = 5;
+                int ww = ws + w;
+                int nw = 3*(2*w + 1)*(2*w + 1);
+
+                for (int y = ww; y < ny - ww; ++y) {
+                    for (int x = ww; x < nx - ww; ++x) {
+                        int i = y*nx + x;
+                        if (obj1.pixels[3*i + 0] == 0 &&
+                            obj1.pixels[3*i + 1] == 0 &&
+                            obj1.pixels[3*i + 2] == 0) {
+                            result.pixels[3*i + 0] = 0;
+                            result.pixels[3*i + 1] = 0;
+                            result.pixels[3*i + 2] = 0;
+                            continue;
+                        }
+
+                        int diffbest = 300*nw;
+
+                        for (int yy = y - ws; yy <= y + ws; ++yy) {
+                            for (int xx = x - ws; xx <= x + ws; ++xx) {
+                                int diffcur = 0.0;
+
+                                for (int yyy = yy - w; yyy <= yy + w; ++yyy) {
+                                    for (int xxx = xx - w; xxx <= xx + w; ++xxx) {
+                                        int iii = yyy*nx + xxx;
+                                        int ii = (yyy - yy + y)*nx + (xxx - xx + x);
+
+                                        diffcur += std::abs(((int)(obj0.pixels[3*ii + 0])) - ((int)(obj1.pixels[3*iii + 0])));
+                                        diffcur += std::abs(((int)(obj0.pixels[3*ii + 1])) - ((int)(obj1.pixels[3*iii + 1])));
+                                        diffcur += std::abs(((int)(obj0.pixels[3*ii + 2])) - ((int)(obj1.pixels[3*iii + 2])));
+                                    }
+                                }
+
+                                if (diffcur < diffbest) {
+                                    diffbest = diffcur;
+                                }
+                            }
+                        }
+
+                        diffbest /= nw;
+
+                        result.pixels[3*i + 0] = diffbest;
+                        result.pixels[3*i + 1] = diffbest;
+                        result.pixels[3*i + 2] = diffbest;
+                    }
                 }
             }
         break;

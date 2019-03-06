@@ -128,6 +128,7 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
             if (ImGui::BeginCombo("Overlay image", std::to_string(obj.overlayId).c_str())) {
                 { bool isSelected = obj.overlayId == 0; if (ImGui::Selectable("Projected", isSelected)) obj.overlayId = 0; }
                 { bool isSelected = obj.overlayId == 1; if (ImGui::Selectable("Difference (standard)", isSelected)) obj.overlayId = 1; }
+                { bool isSelected = obj.overlayId == 2; if (ImGui::Selectable("Difference (local diff)", isSelected)) obj.overlayId = 2; }
                 ImGui::EndCombo();
             }
 

@@ -64,7 +64,7 @@ struct CommonPoint {
 };
 
 struct ViewSelectedImage {
-    bool showGrid = true;
+    bool showGrid = false;
     bool showOverlay = true;
 
     int32_t overlayId = 0;
@@ -95,6 +95,7 @@ struct StateApp {
     enum EImage {
         Projected = 0,
         DifferenceStandard,
+        DifferenceLocalDiff,
     };
 
     EAction curAction = LoadingImages;

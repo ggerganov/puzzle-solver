@@ -6,6 +6,8 @@
 #include "Types.h"
 #include "Functions.h"
 
+#include "ggimg/ggimg.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
@@ -148,10 +150,29 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
         break;
         case LocalDiff:
             {
-                result = obj0;
-                int nx = result.nx;
-                int ny = result.ny;
-                int n = nx*ny;
+                int nx = obj0.nx;
+                int ny = obj0.ny;
+
+                auto objm0 = obj0;
+                auto objm1 = obj1;
+
+                {
+                    int nnx = 0;
+                    int nny = 0;
+
+                    ggimg::scale_li_maxside_2d_rgb(nx, ny, obj0.pixels.data(), 1024, nnx, nny, objm0.pixels);
+                    ggimg::scale_li_maxside_2d_rgb(nx, ny, obj1.pixels.data(), 1024, nnx, nny, objm1.pixels);
+
+                    nx = nnx;
+                    ny = nny;
+                }
+
+                ggimg::median_filter_2d_rgb(nx, ny, objm0.pixels.data(), objm0.pixels.data(), 10);
+                ggimg::median_filter_2d_rgb(nx, ny, objm1.pixels.data(), objm1.pixels.data(), 10);
+
+                result = objm0;
+                result.nx = nx;
+                result.ny = ny;
 
                 int w = 1;
                 int ws = 5;
@@ -161,9 +182,9 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 for (int y = ww; y < ny - ww; ++y) {
                     for (int x = ww; x < nx - ww; ++x) {
                         int i = y*nx + x;
-                        if (obj1.pixels[3*i + 0] == 0 &&
-                            obj1.pixels[3*i + 1] == 0 &&
-                            obj1.pixels[3*i + 2] == 0) {
+                        if (objm1.pixels[3*i + 0] == 0 &&
+                            objm1.pixels[3*i + 1] == 0 &&
+                            objm1.pixels[3*i + 2] == 0) {
                             result.pixels[3*i + 0] = 0;
                             result.pixels[3*i + 1] = 0;
                             result.pixels[3*i + 2] = 0;
@@ -181,9 +202,9 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                                         int iii = yyy*nx + xxx;
                                         int ii = (yyy - yy + y)*nx + (xxx - xx + x);
 
-                                        diffcur += std::abs(((int)(obj0.pixels[3*ii + 0])) - ((int)(obj1.pixels[3*iii + 0])));
-                                        diffcur += std::abs(((int)(obj0.pixels[3*ii + 1])) - ((int)(obj1.pixels[3*iii + 1])));
-                                        diffcur += std::abs(((int)(obj0.pixels[3*ii + 2])) - ((int)(obj1.pixels[3*iii + 2])));
+                                        diffcur += std::abs(((int)(objm0.pixels[3*ii + 0])) - ((int)(objm1.pixels[3*iii + 0])));
+                                        diffcur += std::abs(((int)(objm0.pixels[3*ii + 1])) - ((int)(objm1.pixels[3*iii + 1])));
+                                        diffcur += std::abs(((int)(objm0.pixels[3*ii + 2])) - ((int)(objm1.pixels[3*iii + 2])));
                                     }
                                 }
 

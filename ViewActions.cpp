@@ -151,7 +151,7 @@ bool Render::operator()<ViewActions>(ViewActions & obj, StateApp & state) {
             int ny = referenceImage.ny;
 
             ::Resize()(projectedImage, nx, ny);
-            ::ggimg::transform_homography_rgb_nn(nx, ny, referenceImage.pixels.data(), homography, nx, ny, projectedImage.pixels.data());
+            ::ggimg::transform_homography_nn_rgb(nx, ny, referenceImage.pixels.data(), homography, nx, ny, projectedImage.pixels.data());
             ::GenerateTexture()(projectedImage, true);
         }
 

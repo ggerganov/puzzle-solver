@@ -68,6 +68,7 @@ struct ComputeDifference {
     enum Method {
         Standard = 0,
         LocalDiff,
+        HistDiff,
     } method;
 
     template <typename T> T operator()(const T & obj0, const T & obj1);

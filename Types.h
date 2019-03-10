@@ -96,6 +96,7 @@ struct StateApp {
         Projected = 0,
         DifferenceStandard,
         DifferenceLocalDiff,
+        DifferenceHistDiff,
     };
 
     EAction curAction = LoadingImages;

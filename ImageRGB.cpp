@@ -639,7 +639,127 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
 
                 ggimg::write_ppm_rgb("result_cc.ppm", nx, ny, result.pixels);
             }
-        break;
+            break;
+        case SSIM:
+            {
+                int nx = obj0.nx;
+                int ny = obj0.ny;
+
+                BufferRGB objm0;
+                BufferRGB objm1;
+
+                {
+                    int nnx = 0;
+                    int nny = 0;
+
+                    ggimg::scale_li_maxside_2d_rgb(nx, ny, obj0.pixels.data(), 512, nnx, nny, objm0);
+                    ggimg::scale_li_maxside_2d_rgb(nx, ny, obj1.pixels.data(), 512, nnx, nny, objm1);
+
+                    nx = nnx;
+                    ny = nny;
+                }
+
+                {
+                    //ggimg::median_filter_2d_rgb(nx, ny, objm0.data(), objm0.data(), 4);
+                    //ggimg::median_filter_2d_rgb(nx, ny, objm1.data(), objm1.data(), 4);
+
+                    ggimg::gaussian_filter_2d_rgb(nx, ny, objm0.data(), objm0.data(), 3.0f);
+                    ggimg::gaussian_filter_2d_rgb(nx, ny, objm1.data(), objm1.data(), 3.0f);
+                }
+
+                std::vector<uint8_t> objgray0(nx*ny);
+                std::vector<uint8_t> objgray1(nx*ny);
+
+                ggimg::rgb_to_gray_2d(nx, ny, objm0.data(), objgray0.data());
+                ggimg::rgb_to_gray_2d(nx, ny, objm1.data(), objgray1.data());
+
+                std::vector<uint8_t> result_gray(nx*ny);
+
+                int w = 8;
+                int ws = 0;
+                int ww = ws + w;
+                int nw = (2*w + 1)*(2*w + 1);
+
+                for (int y = ww; y < ny - ww; ++y) {
+                    for (int x = ww; x < nx - ww; ++x) {
+                        int i = y*nx + x;
+                        if (objgray1[i] == 0) {
+                            result_gray[i] = 0;
+                            continue;
+                        }
+
+                        double sum0  = 0.0;
+                        double sum02 = 0.0;
+
+                        for (int yyy = y - w; yyy <= y + w; ++yyy) {
+                            for (int xxx = x - w; xxx <= x + w; ++xxx) {
+                                int iii = yyy*nx + xxx;
+
+                                double v = objgray0[iii];
+
+                                sum0 += v;
+                                sum02 += v*v;
+                            }
+                        }
+
+                        double ssimbest = -1.0f;
+
+                        for (int yy = y - ws; yy <= y + ws; ++yy) {
+                            for (int xx = x - ws; xx <= x + ws; ++xx) {
+                                double sum1 = 0.0;
+                                double sum12 = 0.0;
+                                double sum01 = 0.0;
+
+                                for (int yyy = yy - w; yyy <= yy + w; ++yyy) {
+                                    for (int xxx = xx - w; xxx <= xx + w; ++xxx) {
+                                        int iii = yyy*nx + xxx;
+                                        int ii = (yyy - yy + y)*nx + (xxx - xx + x);
+
+                                        double v0 = objgray0[ii];
+                                        double v1 = objgray1[iii];
+
+                                        sum1 += v1;
+                                        sum12 += v1*v1;
+                                        sum01 += v0*v1;
+                                    }
+                                }
+
+                                double ssimcur = 0.0;
+
+                                {
+                                    double k1 = 0.01;
+                                    double k2 = 0.03;
+                                    double L = 255.0;
+                                    double c1 = (k1*L)*(k1*L);
+                                    double c2 = (k2*L)*(k2*L);
+                                    double mean0 = sum0/nw;
+                                    double mean1 = sum1/nw;
+                                    double cov01 = sum01/nw - mean0*mean1;
+                                    double var0  = sum02/nw - mean0*mean0;
+                                    double var1  = sum12/nw - mean1*mean1;
+
+                                    double term0 = (2.0*mean0*mean1 + c1)/(mean0*mean0 + mean1*mean1 + c1);
+                                    double term1 = (2.0*cov01 + c2)/(var0 + var1 + c2);
+                                    ssimcur = term0*term1;
+                                }
+
+                                if (ssimcur > ssimbest) {
+                                    ssimbest = ssimcur;
+                                }
+                            }
+                        }
+
+                        result_gray[i] = 127*(1.0 - ssimbest);
+                    }
+                }
+
+                result.pixels.resize(3*nx*ny);
+                result.nx = nx;
+                result.ny = ny;
+
+                ggimg::gray_to_rgb_2d(nx, ny, result_gray.data(), result.pixels.data());
+            }
+            break;
     }
 
     ::GenerateTexture()(result, true);

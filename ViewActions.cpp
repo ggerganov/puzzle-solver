@@ -162,7 +162,8 @@ bool Render::operator()<ViewActions>(ViewActions & obj, StateApp & state) {
             if (ImGui::Button("Calculate difference")) {
                 state.images[StateApp::DifferenceStandard] = ::ComputeDifference{::ComputeDifference::Standard}(selectedImage, projectedImage);
                 //state.images[StateApp::DifferenceLocalDiff] = ::ComputeDifference{::ComputeDifference::LocalDiff}(selectedImage, projectedImage);
-                state.images[StateApp::DifferenceHistDiff] = ::ComputeDifference{::ComputeDifference::HistDiff}(selectedImage, projectedImage);
+                //state.images[StateApp::DifferenceHistDiff] = ::ComputeDifference{::ComputeDifference::HistDiff}(selectedImage, projectedImage);
+                state.images[StateApp::DifferenceSSIM] = ::ComputeDifference{::ComputeDifference::SSIM}(selectedImage, projectedImage);
             }
         }
     }

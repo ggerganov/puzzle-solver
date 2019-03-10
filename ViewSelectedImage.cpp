@@ -130,6 +130,7 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
                 { bool isSelected = obj.overlayId == 1; if (ImGui::Selectable("Difference (standard)", isSelected)) obj.overlayId = 1; }
                 { bool isSelected = obj.overlayId == 2; if (ImGui::Selectable("Difference (local diff)", isSelected)) obj.overlayId = 2; }
                 { bool isSelected = obj.overlayId == 3; if (ImGui::Selectable("Difference (hist diff)", isSelected)) obj.overlayId = 3; }
+                { bool isSelected = obj.overlayId == 4; if (ImGui::Selectable("Difference (SSIM)", isSelected)) obj.overlayId = 4; }
                 ImGui::EndCombo();
             }
 

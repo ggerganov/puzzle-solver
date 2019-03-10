@@ -6,6 +6,7 @@
 #include "Types.h"
 #include "Functions.h"
 
+#define GGIMG_FS
 #include "ggimg/ggimg.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -147,7 +148,7 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                     result.pixels[3*i + 2] = std::abs((int)(result.pixels[3*i + 2]) - obj1.pixels[3*i + 2]);
                 }
             }
-        break;
+            break;
         case LocalDiff:
             {
                 int nx = obj0.nx;
@@ -170,7 +171,7 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 ggimg::median_filter_2d_rgb(nx, ny, objm0.pixels.data(), objm0.pixels.data(), 10);
                 ggimg::median_filter_2d_rgb(nx, ny, objm1.pixels.data(), objm1.pixels.data(), 10);
 
-                result = objm0;
+                result.pixels.resize(3*nx*ny);
                 result.nx = nx;
                 result.ny = ny;
 
@@ -222,6 +223,7 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                     }
                 }
             }
+            break;
         case HistDiff:
             {
                 int nx = obj0.nx;
@@ -230,17 +232,9 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 BufferRGB objm0;
                 BufferRGB objm1;
 
-                //BufferRGB objm0_0;
-                //BufferRGB objm1_0;
-
-                //BufferRGB objm0_1;
-                //BufferRGB objm1_1;
-
-                //BufferRGB objm0_2;
-                //BufferRGB objm1_2;
-
-                int L = 8;
+                int L = 4;
                 int W = 8;
+                int C = 24;
 
                 {
                     int nnx = 0;
@@ -251,30 +245,6 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
 
                     nx = nnx;
                     ny = nny;
-
-                    //objm0_0 = objm0;
-                    //objm1_0 = objm1;
-
-                    //objm0_1 = objm0;
-                    //objm1_1 = objm1;
-
-                    //objm0_2 = objm0;
-                    //objm1_2 = objm1;
-
-                    //ggimg::gaussian_filter_2d_rgb(nx, ny, objm0.data(), objm0_0.data(), 1.0f);
-                    //ggimg::gaussian_filter_2d_rgb(nx, ny, objm1.data(), objm1_0.data(), 1.0f);
-
-                    //ggimg::gaussian_filter_2d_rgb(nx, ny, objm0.data(), objm0_1.data(), 3.0f);
-                    //ggimg::gaussian_filter_2d_rgb(nx, ny, objm1.data(), objm1_1.data(), 3.0f);
-
-                    //ggimg::gaussian_filter_2d_rgb(nx, ny, objm0.data(), objm0_2.data(), 6.0f);
-                    //ggimg::gaussian_filter_2d_rgb(nx, ny, objm1.data(), objm1_2.data(), 6.0f);
-
-                    //ggimg::median_filter_2d_rgb(nx, ny, objm0.data(), objm0.data(), 4);
-                    //ggimg::median_filter_2d_rgb(nx, ny, objm1.data(), objm1.data(), 4);
-
-                    ggimg::gaussian_filter_2d_rgb(nx, ny, objm0.data(), objm0.data(), 3.0f);
-                    ggimg::gaussian_filter_2d_rgb(nx, ny, objm1.data(), objm1.data(), 3.0f);
                 }
 
                 //std::vector<uint8_t> objr0(nx*ny);
@@ -314,7 +284,6 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 //std::vector<uint8_t> objgrayxy1(nx*ny);
 
                 //{
-
                 //    ggimg::rgb_to_r_2d(nx, ny, objm0.data(), objr0.data());
                 //    ggimg::gradient_sobel_2d(1, nx, ny, objr0.data(), (uint8_t) 255, objrx0.data());
                 //    ggimg::gradient_sobel_2d(2, nx, ny, objr0.data(), (uint8_t) 255, objry0.data());
@@ -327,7 +296,6 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 //}
 
                 //{
-
                 //    ggimg::rgb_to_g_2d(nx, ny, objm0.data(), objg0.data());
                 //    ggimg::gradient_sobel_2d(1, nx, ny, objg0.data(), (uint8_t) 255, objgx0.data());
                 //    ggimg::gradient_sobel_2d(2, nx, ny, objg0.data(), (uint8_t) 255, objgy0.data());
@@ -340,7 +308,6 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 //}
 
                 //{
-
                 //    ggimg::rgb_to_b_2d(nx, ny, objm0.data(), objb0.data());
                 //    ggimg::gradient_sobel_2d(1, nx, ny, objb0.data(), (uint8_t) 255, objbx0.data());
                 //    ggimg::gradient_sobel_2d(2, nx, ny, objb0.data(), (uint8_t) 255, objby0.data());
@@ -353,7 +320,6 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 //}
 
                 //{
-
                 //    ggimg::rgb_to_gray_2d(nx, ny, objm0.data(), objgray0.data());
                 //    ggimg::gradient_sobel_2d(1, nx, ny, objgray0.data(), (uint8_t) 255, objgrayx0.data());
                 //    ggimg::gradient_sobel_2d(2, nx, ny, objgray0.data(), (uint8_t) 255, objgrayy0.data());
@@ -365,11 +331,34 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 //    ggimg::gradient_sobel_2d(0, nx, ny, objgray1.data(), (uint8_t) 255, objgrayxy1.data());
                 //}
 
-                std::vector<uint8_t> objh0(12*L*nx*ny);
-                std::vector<uint8_t> objh1(12*L*nx*ny);
+                {
+                    //ggimg::median_filter_2d_rgb(nx, ny, objm0.data(), objm0.data(), 4);
+                    //ggimg::median_filter_2d_rgb(nx, ny, objm1.data(), objm1.data(), 4);
 
-                ggimg::lhist_filter_2d_rgb(nx, ny, objm0.data(), objh0.data(), L, W);
-                ggimg::lhist_filter_2d_rgb(nx, ny, objm1.data(), objh1.data(), L, W);
+                    ggimg::gaussian_filter_2d_rgb(nx, ny, objm0.data(), objm0.data(), 1.0f);
+                    ggimg::gaussian_filter_2d_rgb(nx, ny, objm1.data(), objm1.data(), 1.0f);
+
+                    //ggimg::gaussian_filter_2d_gray(nx, ny, objgray0.data(), objgray0.data(), 1.0f);
+                    //ggimg::gaussian_filter_2d_gray(nx, ny, objgray1.data(), objgray1.data(), 1.0f);
+
+                    //ggimg::gaussian_filter_2d_gray(nx, ny, objrxy0.data(), objrxy0.data(), 1.0f);
+                    //ggimg::gaussian_filter_2d_gray(nx, ny, objrxy1.data(), objrxy1.data(), 1.0f);
+
+                    //ggimg::gaussian_filter_2d_gray(nx, ny, objgxy0.data(), objgxy0.data(), 1.0f);
+                    //ggimg::gaussian_filter_2d_gray(nx, ny, objgxy1.data(), objgxy1.data(), 1.0f);
+
+                    //ggimg::gaussian_filter_2d_gray(nx, ny, objbxy0.data(), objbxy0.data(), 1.0f);
+                    //ggimg::gaussian_filter_2d_gray(nx, ny, objbxy1.data(), objbxy1.data(), 1.0f);
+
+                    //ggimg::gaussian_filter_2d_gray(nx, ny, objgrayxy0.data(), objgrayxy0.data(), 10.0f);
+                    //ggimg::gaussian_filter_2d_gray(nx, ny, objgrayxy1.data(), objgrayxy1.data(), 10.0f);
+                }
+
+                std::vector<uint8_t> objh0(C*L*nx*ny);
+                std::vector<uint8_t> objh1(C*L*nx*ny);
+
+                ggimg::lhist_filter_2d_rgb(nx, ny, objm0.data(), objh0.data() + 0*L*nx*ny, L, 1*W);
+                ggimg::lhist_filter_2d_rgb(nx, ny, objm1.data(), objh1.data() + 0*L*nx*ny, L, 1*W);
 
                 ggimg::lhist_filter_2d_rgb(nx, ny, objm0.data(), objh0.data() + 3*L*nx*ny, L, 2*W);
                 ggimg::lhist_filter_2d_rgb(nx, ny, objm1.data(), objh1.data() + 3*L*nx*ny, L, 2*W);
@@ -379,6 +368,54 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
 
                 ggimg::lhist_filter_2d_rgb(nx, ny, objm0.data(), objh0.data() + 9*L*nx*ny, L, 4*W);
                 ggimg::lhist_filter_2d_rgb(nx, ny, objm1.data(), objh1.data() + 9*L*nx*ny, L, 4*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgray0.data(), objh0.data() + 12*L*nx*ny, L, 1*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgray1.data(), objh1.data() + 12*L*nx*ny, L, 1*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgray0.data(), objh0.data() + 13*L*nx*ny, L, 2*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgray1.data(), objh1.data() + 13*L*nx*ny, L, 2*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgray0.data(), objh0.data() + 14*L*nx*ny, L, 3*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgray1.data(), objh1.data() + 14*L*nx*ny, L, 3*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgray0.data(), objh0.data() + 15*L*nx*ny, L, 4*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgray1.data(), objh1.data() + 15*L*nx*ny, L, 4*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objrxy0.data(), objh0.data() + 12*L*nx*ny, L, 1*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objrxy1.data(), objh1.data() + 12*L*nx*ny, L, 1*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objrxy0.data(), objh0.data() + 13*L*nx*ny, L, 2*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objrxy1.data(), objh1.data() + 13*L*nx*ny, L, 2*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objrxy0.data(), objh0.data() + 14*L*nx*ny, L, 3*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objrxy1.data(), objh1.data() + 14*L*nx*ny, L, 3*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objrxy0.data(), objh0.data() + 15*L*nx*ny, L, 4*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objrxy1.data(), objh1.data() + 15*L*nx*ny, L, 4*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgxy0.data(), objh0.data() + 16*L*nx*ny, L, 1*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgxy1.data(), objh1.data() + 16*L*nx*ny, L, 1*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgxy0.data(), objh0.data() + 17*L*nx*ny, L, 2*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgxy1.data(), objh1.data() + 17*L*nx*ny, L, 2*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgxy0.data(), objh0.data() + 18*L*nx*ny, L, 3*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgxy1.data(), objh1.data() + 18*L*nx*ny, L, 3*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgxy0.data(), objh0.data() + 19*L*nx*ny, L, 4*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objgxy1.data(), objh1.data() + 19*L*nx*ny, L, 4*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objbxy0.data(), objh0.data() + 20*L*nx*ny, L, 1*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objbxy1.data(), objh1.data() + 20*L*nx*ny, L, 1*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objbxy0.data(), objh0.data() + 21*L*nx*ny, L, 2*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objbxy1.data(), objh1.data() + 21*L*nx*ny, L, 2*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objbxy0.data(), objh0.data() + 22*L*nx*ny, L, 3*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objbxy1.data(), objh1.data() + 22*L*nx*ny, L, 3*W);
+
+                //ggimg::lhist_filter_2d_gray(nx, ny, objbxy0.data(), objh0.data() + 23*L*nx*ny, L, 4*W);
+                //ggimg::lhist_filter_2d_gray(nx, ny, objbxy1.data(), objh1.data() + 23*L*nx*ny, L, 4*W);
 
                 //ggimg::lhist_filter_2d_gray(nx, ny, objgray0.data(), objh0.data() + 3*L*nx*ny, L, W);
                 //ggimg::lhist_filter_2d_gray(nx, ny, objgray1.data(), objh1.data() + 3*L*nx*ny, L, W);
@@ -431,7 +468,46 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 //ggimg::lhist_filter_2d_gray(nx, ny, objbxy0.data(), objh0.data() + 11*L*nx*ny, L, W);
                 //ggimg::lhist_filter_2d_gray(nx, ny, objbxy1.data(), objh1.data() + 11*L*nx*ny, L, W);
 
-                result.pixels = objm0;
+                ggimg::write_ppm_rgb("obj0.ppm", nx, ny, objm0);
+                ggimg::write_ppm_rgb("obj1.ppm", nx, ny, objm1);
+
+                //ggimg::write_ppm_gray("objr0.ppm", nx, ny, objr0);
+                //ggimg::write_ppm_gray("objr1.ppm", nx, ny, objr1);
+                //ggimg::write_ppm_gray("objrx0.ppm", nx, ny, objrx0);
+                //ggimg::write_ppm_gray("objrx1.ppm", nx, ny, objrx1);
+                //ggimg::write_ppm_gray("objry0.ppm", nx, ny, objry0);
+                //ggimg::write_ppm_gray("objry1.ppm", nx, ny, objry1);
+                //ggimg::write_ppm_gray("objrxy0.ppm", nx, ny, objrxy0);
+                //ggimg::write_ppm_gray("objrxy1.ppm", nx, ny, objrxy1);
+
+                //ggimg::write_ppm_gray("objg0.ppm", nx, ny, objg0);
+                //ggimg::write_ppm_gray("objg1.ppm", nx, ny, objg1);
+                //ggimg::write_ppm_gray("objgx0.ppm", nx, ny, objgx0);
+                //ggimg::write_ppm_gray("objgx1.ppm", nx, ny, objgx1);
+                //ggimg::write_ppm_gray("objgy0.ppm", nx, ny, objgy0);
+                //ggimg::write_ppm_gray("objgy1.ppm", nx, ny, objgy1);
+                //ggimg::write_ppm_gray("objgxy0.ppm", nx, ny, objgxy0);
+                //ggimg::write_ppm_gray("objgxy1.ppm", nx, ny, objgxy1);
+
+                //ggimg::write_ppm_gray("objb0.ppm", nx, ny, objb0);
+                //ggimg::write_ppm_gray("objb1.ppm", nx, ny, objb1);
+                //ggimg::write_ppm_gray("objbx0.ppm", nx, ny, objbx0);
+                //ggimg::write_ppm_gray("objbx1.ppm", nx, ny, objbx1);
+                //ggimg::write_ppm_gray("objby0.ppm", nx, ny, objby0);
+                //ggimg::write_ppm_gray("objby1.ppm", nx, ny, objby1);
+                //ggimg::write_ppm_gray("objbxy0.ppm", nx, ny, objbxy0);
+                //ggimg::write_ppm_gray("objbxy1.ppm", nx, ny, objbxy1);
+
+                //ggimg::write_ppm_gray("objgray0.ppm", nx, ny, objgray0);
+                //ggimg::write_ppm_gray("objgray1.ppm", nx, ny, objgray1);
+                //ggimg::write_ppm_gray("objgrayx0.ppm", nx, ny, objgrayx0);
+                //ggimg::write_ppm_gray("objgrayx1.ppm", nx, ny, objgrayx1);
+                //ggimg::write_ppm_gray("objgrayy0.ppm", nx, ny, objgrayy0);
+                //ggimg::write_ppm_gray("objgrayy1.ppm", nx, ny, objgrayy1);
+                //ggimg::write_ppm_gray("objgrayxy0.ppm", nx, ny, objgrayxy0);
+                //ggimg::write_ppm_gray("objgrayxy1.ppm", nx, ny, objgrayxy1);
+
+                result.pixels.resize(3*nx*ny);
                 result.nx = nx;
                 result.ny = ny;
 
@@ -461,8 +537,8 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
 
                                 int diffcur = 0.0;
 
-                                for (int l = 0; l < L; ++l) {
-                                    for (int k = k0; k < k1; ++k) {
+                                for (int k = k0; k < k1; ++k) {
+                                    for (int l = 0; l < L; ++l) {
                                         diffcur += std::abs(objh0[k*L*nx*ny + L*i + l] - objh1[k*L*nx*ny + L*ii + l]);
                                     }
                                 }
@@ -475,12 +551,14 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
 
                         diffbest /= nw;
 
-                        result.pixels[3*i + 0] = std::min(255, 10*diffbest);
-                        result.pixels[3*i + 1] = std::min(255, 10*diffbest);
-                        result.pixels[3*i + 2] = std::min(255, 10*diffbest);
+                        result.pixels[3*i + 0] = std::min(255, 1*diffbest);
+                        result.pixels[3*i + 1] = std::min(255, 1*diffbest);
+                        result.pixels[3*i + 2] = std::min(255, 1*diffbest);
 
                     }
                 }
+
+                ggimg::write_ppm_rgb("result_diff.ppm", nx, ny, result.pixels);
 
                 for (int y = ww; y < ny - ww; ++y) {
                     for (int x = ww; x < nx - ww; ++x) {
@@ -516,8 +594,8 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                                 double sum12 = 0.0;
                                 double sum01 = 0.0;
 
-                                for (int l = 0; l < L; ++l) {
-                                    for (int k = k0; k < k1; ++k) {
+                                for (int k = k0; k < k1; ++k) {
+                                    for (int l = 0; l < L; ++l) {
                                         double v0 = objh0[k*L*nx*ny + L*i + l];
                                         double v1 = objh1[k*L*nx*ny + L*ii + l];
 
@@ -549,12 +627,17 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                         //result.pixels[3*i + 0] = 127*(1.0 - ccbest);
                         //result.pixels[3*i + 1] = 127*(1.0 - ccbest);
                         //result.pixels[3*i + 2] = 127*(1.0 - ccbest);
-
-                        //result.pixels[3*i + 0] = objgray0[i];
-                        //result.pixels[3*i + 1] = objgray0[i];
-                        //result.pixels[3*i + 2] = objgray0[i];
                     }
                 }
+
+                {
+                    std::vector<uint8_t> result_gray(nx*ny);
+                    ggimg::rgb_to_r_2d(nx, ny, result.pixels.data(), result_gray.data());
+                    ggimg::normalize_2d(nx, ny, result_gray.data(), (uint8_t) 0, (uint8_t) 255, result_gray.data());
+                    ggimg::gray_to_rgb_2d(nx, ny, result_gray.data(), result.pixels.data());
+                }
+
+                ggimg::write_ppm_rgb("result_cc.ppm", nx, ny, result.pixels);
             }
         break;
     }

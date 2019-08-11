@@ -36,10 +36,10 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
     if (selectedId >= 0) {
         auto & overlayImage = state.images[(StateApp::EImage)(obj.overlayId)];
 
-        auto & referenceImage = state.loadedImages[referenceId].image;
-        auto & selectedImage = state.loadedImages[selectedId].image;
+        auto & referenceImage = state.loadedImages[referenceId].imageWithTexture;
+        auto & selectedImage = state.loadedImages[selectedId].imageWithTexture;
 
-        ImageRGBView view = { &obj.fov, &selectedImage };
+        ImageRGBWithTextureView view = { &obj.fov, &selectedImage };
 
         auto canvasPos = ImGui::GetCursorScreenPos();
         auto canvasSize = ImGui::GetContentRegionAvail();
@@ -50,7 +50,7 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
             auto renderOverlay = obj.showOverlay && ::IsValid()(overlayImage);
 
             auto savePos = ImGui::GetCursorScreenPos();
-            ImGui::Image((void *)(intptr_t) view.image->texture.id, canvasSize,
+            ImGui::Image((void *)(intptr_t) view.imageWithTexture->texture.id, canvasSize,
                          ImVec2(view.fov->centerX - 0.5f*view.fov->sizeX,
                                 view.fov->centerY - 0.5f*view.fov->sizeY),
                          ImVec2(view.fov->centerX + 0.5f*view.fov->sizeX,
@@ -130,7 +130,8 @@ bool Render::operator()<ViewSelectedImage>(ViewSelectedImage & obj, StateApp & s
                 { bool isSelected = obj.overlayId == 1; if (ImGui::Selectable("Difference (standard)", isSelected)) obj.overlayId = 1; }
                 { bool isSelected = obj.overlayId == 2; if (ImGui::Selectable("Difference (local diff)", isSelected)) obj.overlayId = 2; }
                 { bool isSelected = obj.overlayId == 3; if (ImGui::Selectable("Difference (hist diff)", isSelected)) obj.overlayId = 3; }
-                { bool isSelected = obj.overlayId == 4; if (ImGui::Selectable("Difference (SSIM)", isSelected)) obj.overlayId = 4; }
+                { bool isSelected = obj.overlayId == 4; if (ImGui::Selectable("Difference (local cc)", isSelected)) obj.overlayId = 4; }
+                { bool isSelected = obj.overlayId == 5; if (ImGui::Selectable("Difference (SSIM)", isSelected)) obj.overlayId = 5; }
                 ImGui::EndCombo();
             }
 

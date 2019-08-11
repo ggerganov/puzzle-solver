@@ -1,10 +1,32 @@
 cmake_minimum_required (VERSION 3.10)
 project (Puzzle-Solver)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS "on")
+
 option(BUILD_EXPERIMENTAL "Build experimental tools" OFF)
 option(USE_FINDSDL2 "Use the FindSDL2.cmake script" OFF)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS "on")
+option(PUZZLE_SOLVER_SANITIZE_THREAD         "puzzle-solver: enable thread sanitizer" OFF)
+option(PUZZLE_SOLVER_SANITIZE_ADDRESS        "puzzle-solver: enable address sanitizer" OFF)
+option(PUZZLE_SOLVER_SANITIZE_UNDEFINED      "puzzle-solver: enable undefined sanitizer" OFF)
+
+# sanitizers
+
+if (PUZZLE_SOLVER_SANITIZE_THREAD)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
+endif()
+
+if (PUZZLE_SOLVER_SANITIZE_ADDRESS)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+endif()
+
+if (PUZZLE_SOLVER_SANITIZE_UNDEFINED)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+endif()
+
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 if (USE_FINDSDL2)
@@ -60,14 +82,28 @@ add_library(Core STATIC
     ViewSelectedImage.cpp
     ViewActions.cpp
     CommonPoint.cpp
-    Texture.cpp
     Homography.cpp
     )
 
-target_include_directories(Core PRIVATE
+target_include_directories(Core PUBLIC
+    .
     )
 
 target_link_libraries(Core PRIVATE
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${COREFOUNDATION_LIBRARY}
+    )
+
+add_library(CoreGL STATIC
+    Texture.cpp
+    ImageRGBWithTexture.cpp
+    )
+
+target_include_directories(CoreGL PUBLIC
+    .
+    )
+
+target_link_libraries(CoreGL PRIVATE
     ${CMAKE_THREAD_LIBS_INIT}
     ${SDL2_LIBRARIES}
     ${COREFOUNDATION_LIBRARY}
@@ -95,7 +131,13 @@ target_link_libraries(ImGui PRIVATE
     )
 
 add_executable(main main.cpp)
-target_link_libraries(main PRIVATE Core ImGui)
+target_link_libraries(main PRIVATE Core CoreGL ImGui)
+
+add_executable(diff diff.cpp)
+target_link_libraries(diff PRIVATE Core)
+
+add_executable(align align.cpp)
+target_link_libraries(align PRIVATE Core)
 
 #
 ## Experimental stuff

@@ -31,6 +31,10 @@ struct ImageRGB {
     int32_t ny = -1;
 
     BufferRGB pixels;
+};
+
+struct ImageRGBWithTexture {
+    ImageRGB image;
     Texture texture;
 };
 
@@ -42,14 +46,14 @@ struct FieldOfView {
     float sizeY = 1.0f;
 };
 
-struct ImageRGBView {
+struct ImageRGBWithTextureView {
     FieldOfView * fov = nullptr;
-    ImageRGB * image = nullptr;
+    ImageRGBWithTexture * imageWithTexture = nullptr;
 };
 
 struct LoadedImage {
     std::string fname = "";
-    ImageRGB image;
+    ImageRGBWithTexture imageWithTexture;
 };
 
 struct ViewLoadedImages {
@@ -97,6 +101,7 @@ struct StateApp {
         DifferenceStandard,
         DifferenceLocalDiff,
         DifferenceHistDiff,
+        DifferenceLocalCC,
         DifferenceSSIM,
     };
 
@@ -111,7 +116,7 @@ struct StateApp {
 
     // Data
 
-    std::map<EImage, ImageRGB> images;
+    std::map<EImage, ImageRGBWithTexture> images;
     std::vector<CommonPoint> commonPoints;
     std::vector<LoadedImage> loadedImages;
     std::map<int, std::map<int, Homography>> homographies;

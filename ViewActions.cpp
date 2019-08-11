@@ -141,28 +141,29 @@ bool Render::operator()<ViewActions>(ViewActions & obj, StateApp & state) {
         }
 
         if (ImGui::Button("Project reference")) {
-            const auto & referenceImage = state.loadedImages[referenceId].image;
-            const auto & selectedImage = state.loadedImages[selectedId].image;
+            const auto & referenceImage = state.loadedImages[referenceId].imageWithTexture.image;
+            const auto & selectedImage = state.loadedImages[selectedId].imageWithTexture.image;
 
-            auto & projectedImage = state.images[StateApp::Projected];
+            auto & projectedImageWithTexture = state.images[StateApp::Projected];
             auto & homography = state.homographies[selectedId][referenceId];
 
             int nx = referenceImage.nx;
             int ny = referenceImage.ny;
 
-            ::Resize()(projectedImage, nx, ny);
-            ::ggimg::transform_homography_nn_rgb(nx, ny, referenceImage.pixels.data(), homography, nx, ny, projectedImage.pixels.data());
-            ::GenerateTexture()(projectedImage, true);
+            ::Resize()(projectedImageWithTexture, nx, ny);
+            ::ggimg::transform_homography_nn_rgb(nx, ny, referenceImage.pixels.data(), homography, nx, ny, projectedImageWithTexture.image.pixels.data());
+            ::GenerateTexture()(projectedImageWithTexture, true);
         }
 
         if (::IsValid()(state.images[StateApp::Projected])) {
             const auto & projectedImage = state.images[StateApp::Projected];
-            const auto & selectedImage = state.loadedImages[selectedId].image;
+            const auto & selectedImage = state.loadedImages[selectedId].imageWithTexture;
 
             if (ImGui::Button("Calculate difference")) {
                 state.images[StateApp::DifferenceStandard] = ::ComputeDifference{::ComputeDifference::Standard}(selectedImage, projectedImage);
-                //state.images[StateApp::DifferenceLocalDiff] = ::ComputeDifference{::ComputeDifference::LocalDiff}(selectedImage, projectedImage);
+                state.images[StateApp::DifferenceLocalDiff] = ::ComputeDifference{::ComputeDifference::LocalDiff}(selectedImage, projectedImage);
                 //state.images[StateApp::DifferenceHistDiff] = ::ComputeDifference{::ComputeDifference::HistDiff}(selectedImage, projectedImage);
+                //state.images[StateApp::DifferenceLocalCC] = ::ComputeDifference{::ComputeDifference::LocalCC}(selectedImage, projectedImage);
                 state.images[StateApp::DifferenceSSIM] = ::ComputeDifference{::ComputeDifference::SSIM}(selectedImage, projectedImage);
             }
         }

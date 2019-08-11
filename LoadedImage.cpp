@@ -10,7 +10,7 @@ template <>
 bool Free::operator()<LoadedImage>(LoadedImage & obj) {
     bool res = true;
 
-    res &= ::Free()(obj.image);
+    res &= ::Free()(obj.imageWithTexture);
 
     return res;
 }

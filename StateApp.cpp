@@ -18,7 +18,7 @@ bool OnDragAndDrop::operator()<StateApp>(StateApp & obj, const char * fname) {
         return false;
     }
 
-    ImageRGB newImage;
+    ImageRGBWithTexture newImage;
     if (::LoadFromFile()(newImage, fname) == false) {
         return false;
     }

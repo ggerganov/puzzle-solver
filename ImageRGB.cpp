@@ -12,7 +12,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
-#include "GL/gl3w.h"
+namespace {
+constexpr auto kInvMax = 1.0/RAND_MAX;
+inline float frand() { return float(rand())*kInvMax; }
+}
 
 template <>
 bool Resize::operator()<ImageRGB>(ImageRGB & obj, const int32_t nx, const int32_t ny) {
@@ -76,52 +79,228 @@ bool LoadFromFile::operator()<ImageRGB>(ImageRGB & obj, const char * fname) {
 }
 
 template <>
-bool Free::operator()<ImageRGB>(ImageRGB & obj) {
-    printf("Destroying OpenGL texture %d\n", obj.texture.id);
-    this->operator()(obj.texture);
-
-    return true;
-}
-
-template <>
-bool GenerateTexture::operator()<ImageRGB>(ImageRGB & obj, bool linearInterp) {
-    obj.texture = Texture();
-
-    GLuint texId;
-    glGenTextures(1, &texId);
-    glBindTexture(GL_TEXTURE_2D, texId);
-
-    GLenum filter = (linearInterp) ? GL_LINEAR : GL_NEAREST;
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    GLenum inputColourFormat = GL_RGB;
-
-    // Create the texture
-    glTexImage2D(GL_TEXTURE_2D,      // Type of texture
-                 0,                  // Pyramid level (for mip-mapping) - 0 is the top level
-                 GL_RGB,             // Internal colour format to convert to
-                 obj.nx,             // Image width  i.e. 640 for Kinect in standard mode
-                 obj.ny,             // Image height i.e. 480 for Kinect in standard mode
-                 0,                  // Border width in pixels (can either be 1 or 0)
-                 inputColourFormat,  // Input image format (i.e. GL_RGB, GL_RGBA, GL_BGR etc.)
-                 GL_UNSIGNED_BYTE,   // Image data type
-                 obj.pixels.data()); // The actual image data itself
-
-    obj.texture.id = texId;
-
-    printf("Allocated  OpenGL texture %d\n", obj.texture.id);
-
-    return true;
-}
-
-template <>
 bool IsValid::operator()<ImageRGB>(const ImageRGB & obj) {
-    return obj.nx > 0 && obj.ny > 0 && ::Count()(obj.pixels) == (obj.nx*obj.ny) && this->operator()(obj.texture);
+    return obj.nx > 0 && obj.ny > 0 && ::Count()(obj.pixels) == (obj.nx*obj.ny);
+}
+
+template <>
+std::tuple<int64_t, int64_t> ComputeSums::operator()<ImageRGB>(const ImageRGB & a, float wx, float wy, int sx, int sy) {
+    int nx = a.nx;
+    int ny = a.ny;
+
+    int nx0 = 0.5f*float(nx)*(1.0f - wx);
+    int nx1 = 0.5f*float(nx)*(1.0f + wx);
+    int ny0 = 0.5f*float(ny)*(1.0f - wy);
+    int ny1 = 0.5f*float(ny)*(1.0f + wy);
+
+    int64_t sum0  = 0;
+    int64_t sum02 = 0;
+
+    for (int y = ny0; y < ny1; y += sy) {
+        for (int x = nx0; x < nx1; x += sx) {
+            int i = y*nx + x;
+
+            { int32_t v = a.pixels[3*i + 0]; sum0 += v; sum02 += v*v; }
+            { int32_t v = a.pixels[3*i + 1]; sum0 += v; sum02 += v*v; }
+            { int32_t v = a.pixels[3*i + 2]; sum0 += v; sum02 += v*v; }
+        }
+    }
+
+    return { sum0, sum02 };
+}
+
+template <>
+double ComputeSSD::operator()<ImageRGB>(const ImageRGB & a, const ImageRGB & b, float wx, float wy, int sx, int sy) {
+    int nx = a.nx;
+    int ny = a.ny;
+
+    int nx0 = 0.5f*float(nx)*(1.0f - wx);
+    int nx1 = 0.5f*float(nx)*(1.0f + wx);
+    int ny0 = 0.5f*float(ny)*(1.0f - wy);
+    int ny1 = 0.5f*float(ny)*(1.0f + wy);
+
+    int64_t n = 0;
+    int64_t sum = 0;
+
+    for (int y = ny0; y < ny1; y += sy) {
+        for (int x = nx0; x < nx1; x += sx) {
+            int i = y*nx + x;
+
+            {
+                int32_t v0 = a.pixels[3*i + 0];
+                int32_t v1 = b.pixels[3*i + 0];
+
+                sum += (v1 - v0)*(v1 - v0);
+            }
+
+            {
+                int32_t v0 = a.pixels[3*i + 1];
+                int32_t v1 = b.pixels[3*i + 1];
+
+                sum += (v1 - v0)*(v1 - v0);
+            }
+
+            {
+                int32_t v0 = a.pixels[3*i + 2];
+                int32_t v1 = b.pixels[3*i + 2];
+
+                sum += (v1 - v0)*(v1 - v0);
+            }
+
+            ++n;
+        }
+    }
+
+    n *= 3;
+
+    return double(sum)/n;
+}
+
+template <>
+double ComputeCC::operator()<ImageRGB>(const ImageRGB & a, const ImageRGB & b, int64_t sum0, int64_t sum02, float wx, float wy, int sx, int sy) {
+    int nx = a.nx;
+    int ny = a.ny;
+
+    int nx0 = 0.5f*float(nx)*(1.0f - wx);
+    int nx1 = 0.5f*float(nx)*(1.0f + wx);
+    int ny0 = 0.5f*float(ny)*(1.0f - wy);
+    int ny1 = 0.5f*float(ny)*(1.0f + wy);
+
+    int64_t n = 0;
+    int64_t sum1 = 0;
+    int64_t sum12 = 0;
+    int64_t sum01 = 0;
+
+    for (int y = ny0; y < ny1; y += sy) {
+        for (int x = nx0; x < nx1; x += sx) {
+            int i = y*nx + x;
+
+            {
+                int32_t v0 = a.pixels[3*i + 0];
+                int32_t v1 = b.pixels[3*i + 0];
+
+                sum1 += v1;
+                sum12 += v1*v1;
+                sum01 += v0*v1;
+            }
+            {
+                int32_t v0 = a.pixels[3*i + 1];
+                int32_t v1 = b.pixels[3*i + 1];
+
+                sum1 += v1;
+                sum12 += v1*v1;
+                sum01 += v0*v1;
+            }
+            {
+                int32_t v0 = a.pixels[3*i + 2];
+                int32_t v1 = b.pixels[3*i + 2];
+
+                sum1 += v1;
+                sum12 += v1*v1;
+                sum01 += v0*v1;
+            }
+
+            ++n;
+        }
+    }
+
+    n *= 3;
+
+    double cc = 0.0;
+
+    {
+        double nom   = sum01*n - sum0*sum1;
+        double den2a = sum02*n - sum0*sum0;
+        double den2b = sum12*n - sum1*sum1;
+        cc = (nom)/(sqrt(den2a*den2b));
+    }
+
+    return cc;
+}
+
+template <>
+ImageRGB Register::operator()<ImageRGB>(const ImageRGB & img0, const ImageRGB & img1, const std::array<Point2D, 4> & pi, std::array<Point2D, 4> & pj) {
+    int nx0 = img0.nx;
+    int ny0 = img0.ny;
+
+    auto bestpj = pj;
+    double bestcc = -1e30;
+
+    for (int nTry = 0; nTry < 1; ++nTry) {
+        int nIters = 256;
+        int nScale = 256;
+        float pvar = 0.005;
+
+        for (int s = 0; s < 8; ++s) {
+            ImageRGB img0r;
+            ImageRGB img1r;
+
+            int nnx = 0;
+            int nny = 0;
+
+            ggimg::scale_li_maxside_2d_rgb(nx0, ny0, img0.pixels.data(), nScale,
+                                           nnx, nny, img0r.pixels);
+            ggimg::scale_li_maxside_2d_rgb(nx0, ny0, img1.pixels.data(), nScale,
+                                           nnx, nny, img1r.pixels);
+
+            int nx = nnx;
+            int ny = nny;
+
+            img1r.nx = nx;
+            img1r.ny = ny;
+
+            auto [sum1, sum12] = ::ComputeSums()(img1r, 0.75f, 0.75f, 1, 1);
+
+            for (int i = 0; i < nIters; ++i) {
+                pj = bestpj;
+                if (i > 0) {
+                    for (int k = 0; k < 4; ++k) {
+                        pj[k].x += pvar * (0.5f - frand());
+                        pj[k].y += pvar * (0.5f - frand());
+                    }
+                }
+
+                auto homography = ::ComputeHomography()(pj, pi);
+
+                ImageRGB img0rp;
+                ::Resize()(img0rp, nx, ny);
+                ::ggimg::transform_homography_nn_rgb(
+                    nx, ny, img0r.pixels.data(), homography, nx, ny,
+                    img0rp.pixels.data());
+
+                auto cc = ::ComputeCC()(img1r, img0rp, sum1, sum12, 0.75f, 0.75f, 1, 1);
+
+                if (cc > bestcc) {
+                    if (bestcc < -1e10) {
+                        printf("cc = %g\n", cc);
+                    }
+                    bestcc = cc;
+                    bestpj = pj;
+                }
+            }
+
+            nScale *= 1.1;
+            pvar *= 0.5f;
+            printf("pyramid %d, bestcc = %g\n", s, bestcc);
+        }
+    }
+
+    pj = bestpj;
+
+    ImageRGB img0p;
+
+    auto homography = ::ComputeHomography()(pj, pi);
+
+    printf("Homography:\n");
+    printf("    %9.5f %9.5f %9.5f\n", homography[0], homography[1], homography[2]);
+    printf("    %9.5f %9.5f %9.5f\n", homography[3], homography[4], homography[5]);
+    printf("    %9.5f %9.5f %9.5f\n", homography[6], homography[7], homography[8]);
+    printf("\n");
+
+    ::Resize()(img0p, nx0, ny0);
+    ::ggimg::transform_homography_nn_rgb(nx0, ny0, img0.pixels.data(), homography, nx0, ny0, img0p.pixels.data());
+
+    return img0p;
 }
 
 template <>
@@ -168,17 +347,95 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                     ny = nny;
                 }
 
-                ggimg::median_filter_2d_rgb(nx, ny, objm0.pixels.data(), objm0.pixels.data(), 10);
-                ggimg::median_filter_2d_rgb(nx, ny, objm1.pixels.data(), objm1.pixels.data(), 10);
+                //ggimg::gaussian_filter_2d_rgb(nx, ny, objm0.pixels.data(), objm0.pixels.data(), 3.0f);
+                //ggimg::gaussian_filter_2d_rgb(nx, ny, objm1.pixels.data(), objm1.pixels.data(), 3.0f);
+
+                //ggimg::median_filter_2d_rgb(nx, ny, objm0.pixels.data(), objm0.pixels.data(), 1);
+                //ggimg::median_filter_2d_rgb(nx, ny, objm1.pixels.data(), objm1.pixels.data(), 1);
 
                 result.pixels.resize(3*nx*ny);
                 result.nx = nx;
                 result.ny = ny;
 
-                int w = 5;
-                int ws = 1;
+                {
+                    int w = 10;
+                    int ws = 5;
+                    int ww = ws + w;
+                    int nw = (2*w + 1)*(2*w + 1);
+
+                    auto objc0 = objm0;
+                    auto objc1 = objm1;
+
+                    for (int y = w; y < ny - w; ++y) {
+                        for (int x = w; x < nx - w; ++x) {
+                            int i = y*nx + x;
+
+                            double sum0r = 0.0;
+                            double sum0g = 0.0;
+                            double sum0b = 0.0;
+
+                            double sum1r = 0.0;
+                            double sum1g = 0.0;
+                            double sum1b = 0.0;
+
+                            for (int yyy = y - w; yyy <= y + w; ++yyy) {
+                                for (int xxx = x - w; xxx <= x + w; ++xxx) {
+                                    int iii = yyy*nx + xxx;
+                                    sum0r += objm0.pixels[3*iii + 0];
+                                    sum0g += objm0.pixels[3*iii + 1];
+                                    sum0b += objm0.pixels[3*iii + 2];
+
+                                    sum1r += objm1.pixels[3*iii + 0];
+                                    sum1g += objm1.pixels[3*iii + 1];
+                                    sum1b += objm1.pixels[3*iii + 2];
+                                }
+                            }
+
+                            sum0r /= nw;
+                            sum0g /= nw;
+                            sum0b /= nw;
+
+                            sum1r /= nw;
+                            sum1g /= nw;
+                            sum1b /= nw;
+
+                            if (sum0r == 0.0) sum0r = 1.0;
+                            if (sum0g == 0.0) sum0g = 1.0;
+                            if (sum0b == 0.0) sum0b = 1.0;
+
+                            if (sum1r == 0.0) sum1r = 1.0;
+                            if (sum1g == 0.0) sum1g = 1.0;
+                            if (sum1b == 0.0) sum1b = 1.0;
+
+                            double avg0 = sqrt(0.333*(sum0r*sum0r + sum0g*sum0g + sum0b*sum0b));
+                            double avg1 = sqrt(0.333*(sum1r*sum1r + sum1g*sum1g + sum1b*sum1b));
+
+                            { auto & x = objc0.pixels[3*i + 0]; double y = (double)(x)/avg0*127.0; x = std::max(0.0, std::min(255.0, y)); }
+                            { auto & x = objc0.pixels[3*i + 1]; double y = (double)(x)/avg0*127.0; x = std::max(0.0, std::min(255.0, y)); }
+                            { auto & x = objc0.pixels[3*i + 2]; double y = (double)(x)/avg0*127.0; x = std::max(0.0, std::min(255.0, y)); }
+
+                            { auto & x = objc1.pixels[3*i + 0]; double y = (double)(x)/avg1*127.0; x = std::max(0.0, std::min(255.0, y)); }
+                            { auto & x = objc1.pixels[3*i + 1]; double y = (double)(x)/avg1*127.0; x = std::max(0.0, std::min(255.0, y)); }
+                            { auto & x = objc1.pixels[3*i + 2]; double y = (double)(x)/avg1*127.0; x = std::max(0.0, std::min(255.0, y)); }
+                        }
+                    }
+
+                    objm0 = objc0;
+                    objm1 = objc1;
+
+                    ggimg::write_ppm_rgb("diff_rel_img0.ppm", nx, ny, objm0.pixels);
+                    ggimg::write_ppm_rgb("diff_rel_img1.ppm", nx, ny, objm1.pixels);
+                }
+
+                int w = 10;
+                int ws = 3;
                 int ww = ws + w;
-                int nw = 3*(2*w + 1)*(2*w + 1);
+                int nw = (2*w + 1)*(2*w + 1);
+
+                std::vector<float> fres(nx*ny, 0.0f);
+
+                float diffmin = 1e9;
+                float diffmax = -1e9;
 
                 for (int y = ww; y < ny - ww; ++y) {
                     for (int x = ww; x < nx - ww; ++x) {
@@ -192,16 +449,21 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                             continue;
                         }
 
-                        int diffbest = 300*nw;
+                        float diffbest = 1e9;
 
                         for (int yy = y - ws; yy <= y + ws; ++yy) {
                             for (int xx = x - ws; xx <= x + ws; ++xx) {
-                                int diffcur = 0.0;
+                                float diffcur = 0.0;
 
                                 for (int yyy = yy - w; yyy <= yy + w; ++yyy) {
                                     for (int xxx = xx - w; xxx <= xx + w; ++xxx) {
                                         int iii = yyy*nx + xxx;
                                         int ii = (yyy - yy + y)*nx + (xxx - xx + x);
+
+                                        //auto max = std::abs(((int)(objm0.pixels[3*ii + 0])) - ((int)(objm1.pixels[3*iii + 0])));
+                                        //max = std::max(max, std::abs(((int)(objm0.pixels[3*ii + 1])) - ((int)(objm1.pixels[3*iii + 1]))));
+                                        //max = std::max(max, std::abs(((int)(objm0.pixels[3*ii + 2])) - ((int)(objm1.pixels[3*iii + 2]))));
+                                        //diffcur += 3*max;
 
                                         diffcur += std::abs(((int)(objm0.pixels[3*ii + 0])) - ((int)(objm1.pixels[3*iii + 0])));
                                         diffcur += std::abs(((int)(objm0.pixels[3*ii + 1])) - ((int)(objm1.pixels[3*iii + 1])));
@@ -215,11 +477,24 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                             }
                         }
 
-                        diffbest /= nw;
+                        diffbest /= 3*nw;
 
-                        result.pixels[3*i + 0] = diffbest;
-                        result.pixels[3*i + 1] = diffbest;
-                        result.pixels[3*i + 2] = diffbest;
+                        if (diffbest < diffmin) diffmin = diffbest;
+                        if (diffbest > diffmax) diffmax = diffbest;
+
+                        fres[i] = diffbest;
+                    }
+                }
+
+                printf("diffmin = %g\n", diffmin);
+                printf("diffmax = %g\n", diffmax);
+
+                for (int y = ww; y < ny - ww; ++y) {
+                    for (int x = ww; x < nx - ww; ++x) {
+                        float v = (fres[y*nx + x] - diffmin)/(diffmax - diffmin);
+                        result.pixels[3*(y*nx + x) + 0] = 250*(v);
+                        result.pixels[3*(y*nx + x) + 1] = 250*(v);
+                        result.pixels[3*(y*nx + x) + 2] = 250*(v);
                     }
                 }
             }
@@ -640,6 +915,126 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 ggimg::write_ppm_rgb("result_cc.ppm", nx, ny, result.pixels);
             }
             break;
+        case LocalCC:
+            {
+                int nx = obj0.nx;
+                int ny = obj0.ny;
+
+                auto objm0 = obj0;
+                auto objm1 = obj1;
+
+                {
+                    int nnx = 0;
+                    int nny = 0;
+
+                    ggimg::scale_li_maxside_2d_rgb(nx, ny, obj0.pixels.data(), 1024, nnx, nny, objm0.pixels);
+                    ggimg::scale_li_maxside_2d_rgb(nx, ny, obj1.pixels.data(), 1024, nnx, nny, objm1.pixels);
+
+                    nx = nnx;
+                    ny = nny;
+                }
+
+                ggimg::median_filter_2d_rgb(nx, ny, objm0.pixels.data(), objm0.pixels.data(), 10);
+                ggimg::median_filter_2d_rgb(nx, ny, objm1.pixels.data(), objm1.pixels.data(), 10);
+
+                result.pixels.resize(3*nx*ny);
+                result.nx = nx;
+                result.ny = ny;
+
+                int w = 3;
+                int ws = 5;
+                int ww = ws + w;
+                int nw = 3*(2*w + 1)*(2*w + 1);
+
+                for (int y = ww; y < ny - ww; ++y) {
+                    for (int x = ww; x < nx - ww; ++x) {
+                        int i = y*nx + x;
+                        if (objm1.pixels[3*i + 0] == 0 &&
+                            objm1.pixels[3*i + 1] == 0 &&
+                            objm1.pixels[3*i + 2] == 0) {
+                            result.pixels[3*i + 0] = 0;
+                            result.pixels[3*i + 1] = 0;
+                            result.pixels[3*i + 2] = 0;
+                            continue;
+                        }
+
+                        double sum0  = 0.0;
+                        double sum02 = 0.0;
+
+                        for (int yyy = y - w; yyy <= y + w; ++yyy) {
+                            for (int xxx = x - w; xxx <= x + w; ++xxx) {
+                                int iii = yyy*nx + xxx;
+
+                                { double v = objm0.pixels[3*iii + 0]; sum0 += v; sum02 += v*v; }
+                                { double v = objm0.pixels[3*iii + 1]; sum0 += v; sum02 += v*v; }
+                                { double v = objm0.pixels[3*iii + 2]; sum0 += v; sum02 += v*v; }
+                            }
+                        }
+
+                        double ccbest = -1.0;
+
+                        for (int yy = y - ws; yy <= y + ws; ++yy) {
+                            for (int xx = x - ws; xx <= x + ws; ++xx) {
+                                int ii = yy*nx + xx;
+
+                                double sum1 = 0.0;
+                                double sum12 = 0.0;
+                                double sum01 = 0.0;
+
+                                for (int yyy = yy - w; yyy <= yy + w; ++yyy) {
+                                    for (int xxx = xx - w; xxx <= xx + w; ++xxx) {
+                                        int iii = yyy*nx + xxx;
+                                        int ii = (yyy - yy + y)*nx + (xxx - xx + x);
+
+                                        {
+                                            double v0 = objm0.pixels[3*ii + 0];
+                                            double v1 = objm1.pixels[3*iii + 0];
+
+                                            sum1 += v1;
+                                            sum12 += v1*v1;
+                                            sum01 += v0*v1;
+                                        }
+                                        {
+                                            double v0 = objm0.pixels[3*ii + 1];
+                                            double v1 = objm1.pixels[3*iii + 1];
+
+                                            sum1 += v1;
+                                            sum12 += v1*v1;
+                                            sum01 += v0*v1;
+                                        }
+                                        {
+                                            double v0 = objm0.pixels[3*ii + 2];
+                                            double v1 = objm1.pixels[3*iii + 2];
+
+                                            sum1 += v1;
+                                            sum12 += v1*v1;
+                                            sum01 += v0*v1;
+                                        }
+                                    }
+                                }
+
+                                double cccur = 0.0;
+
+                                {
+                                    double nom   = sum01*nw - sum0*sum1;
+                                    double den2a = sum02*nw - sum0*sum0;
+                                    double den2b = sum12*nw - sum1*sum1;
+                                    cccur = (nom)/(sqrt(den2a*den2b));
+                                }
+
+                                if (cccur > ccbest) {
+                                    ccbest = cccur;
+                                }
+                            }
+                        }
+
+                        result.pixels[3*i + 0] = 127*(1.0 - ccbest);
+                        result.pixels[3*i + 1] = 127*(1.0 - ccbest);
+                        result.pixels[3*i + 2] = 127*(1.0 - ccbest);
+                    }
+                }
+            }
+            break;
         case SSIM:
             {
                 int nx = obj0.nx;
@@ -659,26 +1054,39 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                     ny = nny;
                 }
 
+                std::vector<uint8_t> objgray0(nx*ny);
+                std::vector<uint8_t> objgray1(nx*ny);
+                std::vector<uint8_t> objgrayxy0(nx*ny);
+                std::vector<uint8_t> objgrayxy1(nx*ny);
+
                 {
                     //ggimg::median_filter_2d_rgb(nx, ny, objm0.data(), objm0.data(), 4);
                     //ggimg::median_filter_2d_rgb(nx, ny, objm1.data(), objm1.data(), 4);
 
-                    ggimg::gaussian_filter_2d_rgb(nx, ny, objm0.data(), objm0.data(), 3.0f);
-                    ggimg::gaussian_filter_2d_rgb(nx, ny, objm1.data(), objm1.data(), 3.0f);
+                    ggimg::rgb_to_gray_2d(nx, ny, objm0.data(), objgray0.data());
+                    ggimg::rgb_to_gray_2d(nx, ny, objm1.data(), objgray1.data());
+
+                    ggimg::gradient_sobel_2d(0, nx, ny, objgray0.data(), (uint8_t) 255, objgrayxy0.data());
+                    ggimg::gradient_sobel_2d(0, nx, ny, objgray1.data(), (uint8_t) 255, objgrayxy1.data());
                 }
 
-                std::vector<uint8_t> objgray0(nx*ny);
-                std::vector<uint8_t> objgray1(nx*ny);
+                {
+                    ggimg::gaussian_filter_2d_rgb(nx, ny, objm0.data(), objm0.data(), 1.0f);
+                    ggimg::gaussian_filter_2d_rgb(nx, ny, objm1.data(), objm1.data(), 1.0f);
 
-                ggimg::rgb_to_gray_2d(nx, ny, objm0.data(), objgray0.data());
-                ggimg::rgb_to_gray_2d(nx, ny, objm1.data(), objgray1.data());
+                    ggimg::gaussian_filter_2d_gray(nx, ny, objgray0.data(), objgray0.data(), 1.0f);
+                    ggimg::gaussian_filter_2d_gray(nx, ny, objgray1.data(), objgray1.data(), 1.0f);
+
+                    ggimg::gaussian_filter_2d_gray(nx, ny, objgrayxy0.data(), objgrayxy0.data(), 1.0f);
+                    ggimg::gaussian_filter_2d_gray(nx, ny, objgrayxy1.data(), objgrayxy1.data(), 1.0f);
+                }
 
                 std::vector<uint8_t> result_gray(nx*ny);
 
                 int w = 8;
-                int ws = 0;
+                int ws = 1;
                 int ww = ws + w;
-                int nw = (2*w + 1)*(2*w + 1);
+                int nw = 3*(2*w + 1)*(2*w + 1);
 
                 for (int y = ww; y < ny - ww; ++y) {
                     for (int x = ww; x < nx - ww; ++x) {
@@ -695,14 +1103,15 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                             for (int xxx = x - w; xxx <= x + w; ++xxx) {
                                 int iii = yyy*nx + xxx;
 
-                                double v = objgray0[iii];
-
-                                sum0 += v;
-                                sum02 += v*v;
+                                //{ double v = objgray0[iii];    sum0 += v; sum02 += v*v; }
+                                //{ double v = objgrayxy0[iii];  sum0 += v; sum02 += v*v; }
+                                { double v = objm0[3*iii + 0]; sum0 += v; sum02 += v*v; }
+                                { double v = objm0[3*iii + 1]; sum0 += v; sum02 += v*v; }
+                                { double v = objm0[3*iii + 2]; sum0 += v; sum02 += v*v; }
                             }
                         }
 
-                        double ssimbest = -1.0f;
+                        double ssimbest = -1.0;
 
                         for (int yy = y - ws; yy <= y + ws; ++yy) {
                             for (int xx = x - ws; xx <= x + ws; ++xx) {
@@ -715,12 +1124,46 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                                         int iii = yyy*nx + xxx;
                                         int ii = (yyy - yy + y)*nx + (xxx - xx + x);
 
-                                        double v0 = objgray0[ii];
-                                        double v1 = objgray1[iii];
+                                        //{
+                                        //    double v0 = objgray0[ii];
+                                        //    double v1 = objgray1[iii];
 
-                                        sum1 += v1;
-                                        sum12 += v1*v1;
-                                        sum01 += v0*v1;
+                                        //    sum1 += v1;
+                                        //    sum12 += v1*v1;
+                                        //    sum01 += v0*v1;
+                                        //}
+                                        //{
+                                        //    double v0 = objgrayxy0[ii];
+                                        //    double v1 = objgrayxy1[iii];
+
+                                        //    sum1 += v1;
+                                        //    sum12 += v1*v1;
+                                        //    sum01 += v0*v1;
+                                        //}
+                                        {
+                                            double v0 = objm0[3*ii + 0];
+                                            double v1 = objm1[3*iii + 0];
+
+                                            sum1 += v1;
+                                            sum12 += v1*v1;
+                                            sum01 += v0*v1;
+                                        }
+                                        {
+                                            double v0 = objm0[3*ii + 1];
+                                            double v1 = objm1[3*iii + 1];
+
+                                            sum1 += v1;
+                                            sum12 += v1*v1;
+                                            sum01 += v0*v1;
+                                        }
+                                        {
+                                            double v0 = objm0[3*ii + 2];
+                                            double v1 = objm1[3*iii + 2];
+
+                                            sum1 += v1;
+                                            sum12 += v1*v1;
+                                            sum01 += v0*v1;
+                                        }
                                     }
                                 }
 
@@ -732,11 +1175,11 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                                     double L = 255.0;
                                     double c1 = (k1*L)*(k1*L);
                                     double c2 = (k2*L)*(k2*L);
-                                    double mean0 = sum0/nw;
-                                    double mean1 = sum1/nw;
-                                    double cov01 = sum01/nw - mean0*mean1;
-                                    double var0  = sum02/nw - mean0*mean0;
-                                    double var1  = sum12/nw - mean1*mean1;
+                                    double mean0 = sum0/nw/1.1;
+                                    double mean1 = sum1/nw/1.1;
+                                    double cov01 = sum01/nw/1.1 - mean0*mean1;
+                                    double var0  = sum02/nw/1.1 - mean0*mean0;
+                                    double var1  = sum12/nw/1.1 - mean1*mean1;
 
                                     double term0 = (2.0*mean0*mean1 + c1)/(mean0*mean0 + mean1*mean1 + c1);
                                     double term1 = (2.0*cov01 + c2)/(var0 + var1 + c2);
@@ -760,9 +1203,247 @@ ImageRGB ComputeDifference::operator()<ImageRGB>(const ImageRGB & obj0, const Im
                 ggimg::gray_to_rgb_2d(nx, ny, result_gray.data(), result.pixels.data());
             }
             break;
+        case Binary:
+            {
+                int nSamples = 5000;
+                float sigma = 16.0f;
+                std::vector<int> binaryKernel(4*nSamples);
+                for (int i = 0; i < nSamples; ++i) {
+                    float x0 = (2.0*frand() - 1.0)*sigma*0.1;
+                    float y0 = (2.0*frand() - 1.0)*sigma*0.1;
+                    //float x0 = 0.0f;
+                    //float y0 = 0.0f;
+
+                    float x1 = x0;
+                    float y1 = y0;
+
+                    while ((x1 - x0)*(x1 - x0) + (y1 - y0)*(y1 - y0) < 1.1*1.1) {
+                        x1 = (2.0*frand() - 1.0)*sigma;
+                        y1 = (2.0*frand() - 1.0)*sigma;
+                    }
+
+                    //printf("%8.6f %8.6f %8.6f %8.6f\n", x0, y0, x1, y1);
+
+                    binaryKernel[4*i + 0] = std::lroundl(x0);
+                    binaryKernel[4*i + 1] = std::lroundl(y0);
+                    binaryKernel[4*i + 2] = std::lroundl(x1);
+                    binaryKernel[4*i + 3] = std::lroundl(y1);
+                }
+
+                int nx = obj0.nx;
+                int ny = obj0.ny;
+
+                auto objm0 = obj0;
+                auto objm1 = obj1;
+
+                {
+                    int nnx = 0;
+                    int nny = 0;
+
+                    //ggimg::scale_li_maxside_2d_rgb(nx, ny, obj0.pixels.data(), 4096, nnx, nny, objm0.pixels);
+                    //ggimg::scale_li_maxside_2d_rgb(nx, ny, obj1.pixels.data(), 4096, nnx, nny, objm1.pixels);
+
+                    ggimg::scale_li_maxside_2d_rgb(nx, ny, obj0.pixels.data(), 1024, nnx, nny, objm0.pixels);
+                    ggimg::scale_li_maxside_2d_rgb(nx, ny, obj1.pixels.data(), 1024, nnx, nny, objm1.pixels);
+
+                    nx = nnx;
+                    ny = nny;
+                }
+
+                //ggimg::median_filter_2d_rgb(nx, ny, objm0.pixels.data(), objm0.pixels.data(), 5);
+                //ggimg::median_filter_2d_rgb(nx, ny, objm1.pixels.data(), objm1.pixels.data(), 5);
+
+                //ggimg::gaussian_filter_2d_rgb(nx, ny, objm0.pixels.data(), objm0.pixels.data(), 4.0f);
+                //ggimg::gaussian_filter_2d_rgb(nx, ny, objm1.pixels.data(), objm1.pixels.data(), 4.0f);
+
+                std::vector<uint8_t> objgray0(nx*ny);
+                std::vector<uint8_t> objgray1(nx*ny);
+                std::vector<uint8_t> objgray0_tmp(nx*ny);
+                std::vector<uint8_t> objgray1_tmp(nx*ny);
+
+                {
+                    ggimg::rgb_to_gray_2d(nx, ny, objm0.pixels.data(), objgray0_tmp.data());
+                    ggimg::rgb_to_gray_2d(nx, ny, objm1.pixels.data(), objgray1_tmp.data());
+
+                    //objgray0 = objgray0_tmp;
+                    //objgray1 = objgray1_tmp;
+
+                    //ggimg::gradient_sobel_2d(0, nx, ny, objgray0_tmp.data(), (uint8_t) 255, objgray0.data());
+                    //ggimg::gradient_sobel_2d(0, nx, ny, objgray1_tmp.data(), (uint8_t) 255, objgray1.data());
+                }
+
+                //ggimg::write_ppm_gray("sobel0.ppm", nx, ny, objgray0);
+                //ggimg::write_ppm_gray("sobel1.ppm", nx, ny, objgray1);
+
+                //ggimg::median_filter_2d_gray(nx, ny, objgray0.data(), objgray0_tmp.data(), 1.0f);
+                //ggimg::median_filter_2d_gray(nx, ny, objgray1.data(), objgray1_tmp.data(), 1.0f);
+
+                //objgray0 = objgray0_tmp;
+                //objgray1 = objgray1_tmp;
+
+                //ggimg::gaussian_filter_2d_gray(nx, ny, objgray0.data(), objgray0.data(), 6.0f);
+                //ggimg::gaussian_filter_2d_gray(nx, ny, objgray1.data(), objgray1.data(), 6.0f);
+
+                //ggimg::write_ppm_gray("sobel_gauss0.ppm", nx, ny, objgray0);
+                //ggimg::write_ppm_gray("sobel_gauss1.ppm", nx, ny, objgray1);
+
+                result.pixels.resize(3*nx*ny, 0);
+                result.nx = nx;
+                result.ny = ny;
+
+                //std::vector<float> fv0(nSamples);
+                //std::vector<float> fv1(nSamples);
+                //std::vector<float> fres(nx*ny, 0.0f);
+
+                //float vmax = -1e6;
+                //float vmin = 1e6;
+
+                //float vt = 5.0f;
+
+                //for (int y = sigma + 1; y < ny - sigma - 1; ++y) {
+                //    for (int x = sigma + 1; x < nx - sigma - 1; ++x) {
+                //        for (int i = 0; i < nSamples; ++i) {
+                //            {
+                //                float v0 = objgray0[(y + binaryKernel[4*i + 1])*nx + (x + binaryKernel[4*i + 0])];
+                //                float v1 = objgray0[(y + binaryKernel[4*i + 3])*nx + (x + binaryKernel[4*i + 2])];
+
+                //                //fv0[i + 0] = std::fabs(v1 - v0);
+                //                fv0[i + 0] = (v1 - vt > v0) ? +1.0f : (v1 + vt < v0) ? -1.0f : 0.0f;
+                //                //fv0[i + 0] = v1 >= v0 ? +1.0f : -1.0f;
+                //                //fv0[i + 0] = v1 - vt > v0 ? v1 - v0 : 0.0f;
+                //                //fv0[i + 0] = v1 - v0;
+                //            }
+
+                //            {
+                //                float v0 = objgray1[(y + binaryKernel[4*i + 1])*nx + (x + binaryKernel[4*i + 0])];
+                //                float v1 = objgray1[(y + binaryKernel[4*i + 3])*nx + (x + binaryKernel[4*i + 2])];
+
+                //                //fv1[i + 0] = std::fabs(v1 - v0);
+                //                fv1[i + 0] = (v1 - vt > v0) ? +1.0f : (v1 + vt < v0) ? -1.0f : 0.0f;
+                //                //fv1[i + 0] = v1 >= v0 ? +1.0f : -1.0f;
+                //                //fv1[i + 0] = v1 - vt > v0 ? v1 - v0 : 0.0f;
+                //                //fv1[i + 0] = v1 - v0;
+                //            }
+                //        }
+
+                //        float sum = 0.0;
+
+                //        for (int i = 0; i < nSamples; ++i) {
+                //            float v = fv0[i]*fv1[i];
+                //            sum  += v;
+                //        }
+
+                //        if (sum < vmin) vmin = sum;
+                //        if (sum > vmax) vmax = sum;
+
+                //        fres[y*nx + x] = sum;
+                //    }
+                //}
+
+                //printf("vmin = %g\n", vmin);
+                //printf("vmax = %g\n", vmax);
+
+                //for (int y = sigma + 1; y < ny - sigma - 1; ++y) {
+                //    for (int x = sigma + 1; x < nx - sigma - 1; ++x) {
+                //        float v = (fres[y*nx + x] - vmin)/(vmax - vmin);
+                //        result.pixels[3*(y*nx + x) + 0] = 250*(1.0f - v);
+                //        result.pixels[3*(y*nx + x) + 1] = 250*(1.0f - v);
+                //        result.pixels[3*(y*nx + x) + 2] = 250*(1.0f - v);
+                //    }
+                //}
+
+                result.pixels.resize(3*nx*ny, 0);
+                result.nx = nx;
+                result.ny = ny;
+
+                std::vector<float> fv0(3*nSamples);
+                std::vector<float> fv1(3*nSamples);
+                std::vector<float> fres(nx*ny, 0.0f);
+
+                float vmax = -1e6;
+                float vmin = 1e6;
+
+                float vt = 5.0f;
+
+                for (int y = sigma + 1; y < ny - sigma - 1; ++y) {
+                    for (int x = sigma + 1; x < nx - sigma - 1; ++x) {
+                        for (int i = 0; i < nSamples; ++i) {
+                            {
+                                float v0 = objm0.pixels[3*((y + binaryKernel[4*i + 1])*nx + (x + binaryKernel[4*i + 0])) + 0];
+                                float v1 = objm0.pixels[3*((y + binaryKernel[4*i + 3])*nx + (x + binaryKernel[4*i + 2])) + 0];
+
+                                fv0[3*i + 0] = (v1 - vt > v0) ? +1.0f : (v1 + vt < v0) ? -1.0f : 0.0f;
+                            }
+
+                            {
+                                float v0 = objm0.pixels[3*((y + binaryKernel[4*i + 1])*nx + (x + binaryKernel[4*i + 0])) + 1];
+                                float v1 = objm0.pixels[3*((y + binaryKernel[4*i + 3])*nx + (x + binaryKernel[4*i + 2])) + 1];
+
+                                fv0[3*i + 1] = (v1 - vt > v0) ? +1.0f : (v1 + vt < v0) ? -1.0f : 0.0f;
+                            }
+
+                            {
+                                float v0 = objm0.pixels[3*((y + binaryKernel[4*i + 1])*nx + (x + binaryKernel[4*i + 0])) + 2];
+                                float v1 = objm0.pixels[3*((y + binaryKernel[4*i + 3])*nx + (x + binaryKernel[4*i + 2])) + 2];
+
+                                fv0[3*i + 2] = (v1 - vt > v0) ? +1.0f : (v1 + vt < v0) ? -1.0f : 0.0f;
+                            }
+
+                            {
+                                float v0 = objm1.pixels[3*((y + binaryKernel[4*i + 1])*nx + (x + binaryKernel[4*i + 0])) + 0];
+                                float v1 = objm1.pixels[3*((y + binaryKernel[4*i + 3])*nx + (x + binaryKernel[4*i + 2])) + 0];
+
+                                fv1[3*i + 0] = (v1 - vt > v0) ? +1.0f : (v1 + vt < v0) ? -1.0f : 0.0f;
+                            }
+
+                            {
+                                float v0 = objm1.pixels[3*((y + binaryKernel[4*i + 1])*nx + (x + binaryKernel[4*i + 0])) + 1];
+                                float v1 = objm1.pixels[3*((y + binaryKernel[4*i + 3])*nx + (x + binaryKernel[4*i + 2])) + 1];
+
+                                fv1[3*i + 1] = (v1 - vt > v0) ? +1.0f : (v1 + vt < v0) ? -1.0f : 0.0f;
+                            }
+
+                            {
+                                float v0 = objm1.pixels[3*((y + binaryKernel[4*i + 1])*nx + (x + binaryKernel[4*i + 0])) + 2];
+                                float v1 = objm1.pixels[3*((y + binaryKernel[4*i + 3])*nx + (x + binaryKernel[4*i + 2])) + 2];
+
+                                fv1[3*i + 2] = (v1 - vt > v0) ? +1.0f : (v1 + vt < v0) ? -1.0f : 0.0f;
+                            }
+                        }
+
+                        float sum = 0.0;
+
+                        for (int i = 0; i < nSamples; ++i) {
+                            float v = 0.0f;
+                            v += fv0[3*i + 0]*fv1[3*i + 0];
+                            v += fv0[3*i + 1]*fv1[3*i + 1];
+                            v += fv0[3*i + 2]*fv1[3*i + 2];
+                            sum  += v;
+                        }
+
+                        if (sum < vmin) vmin = sum;
+                        if (sum > vmax) vmax = sum;
+
+                        fres[y*nx + x] = sum;
+                    }
+                }
+
+                printf("vmin = %g\n", vmin);
+                printf("vmax = %g\n", vmax);
+
+                for (int y = sigma + 1; y < ny - sigma - 1; ++y) {
+                    for (int x = sigma + 1; x < nx - sigma - 1; ++x) {
+                        float v = (fres[y*nx + x] - vmin)/(vmax - vmin);
+                        result.pixels[3*(y*nx + x) + 0] = 250*(1.0f - v);
+                        result.pixels[3*(y*nx + x) + 1] = 250*(1.0f - v);
+                        result.pixels[3*(y*nx + x) + 2] = 250*(1.0f - v);
+                    }
+                }
+            }
+            break;
     }
 
-    ::GenerateTexture()(result, true);
+    ggimg::write_ppm_rgb("result_final.ppm", result.nx, result.ny, result.pixels);
 
     return result;
 }

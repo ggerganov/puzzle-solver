@@ -56,6 +56,22 @@ struct GenerateTexture {
     template <typename T> bool operator()(T & obj, const bool linearInterp);
 };
 
+struct ComputeSums {
+    template <typename T> std::tuple<int64_t, int64_t> operator()(const T & obj0, float wx = 1.0f, float wy = 1.0f, int sx = 1, int sy = 1);
+};
+
+struct ComputeSSD {
+    template <typename T> double operator()(const T & obj0, const T & obj1, float wx = 1.0f, float wy = 1.0f, int sx = 1, int sy = 1);
+};
+
+struct ComputeCC {
+    template <typename T> double operator()(const T & obj0, const T & obj1, int64_t sum0, int64_t sum02, float wx = 1.0f, float wy = 1.0f, int sx = 1, int sy = 1);
+};
+
+struct Register {
+    template <typename T> T operator()(const T & obj0, const T & obj1, const std::array<Point2D, 4> & pi, std::array<Point2D, 4> & pj);
+};
+
 struct ComputeHomography {
     enum Method {
         GaussianElimination = 0,
@@ -69,7 +85,9 @@ struct ComputeDifference {
         Standard = 0,
         LocalDiff,
         HistDiff,
+        LocalCC,
         SSIM,
+        Binary,
     } method;
 
     template <typename T> T operator()(const T & obj0, const T & obj1);
